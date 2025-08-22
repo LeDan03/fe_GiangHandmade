@@ -1,14 +1,69 @@
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+
+import AuthService from "../services/AuthService";
 
 import AuthLayout from "../layouts/AuthLayout";
 
 import SubmitButton from "../components/buttons/SubmitButton";
+import Notification from "../components/Notification";
 
 import path from "../utils/path";
+import validators from "../utils/validators";
+import { HttpStatusCode } from "axios";
 
-export default function RegisterPage() {
-
+const RegisterPage = () => {
     const navigate = useNavigate();
+
+    const [registerData, setRegisterData] = useState({
+        email: "",
+        username: "",
+        password: "",
+        gender: "male",
+        authProviders: "EMAIL"
+    });
+
+    const [emailError, setEmailError] = useState("");
+    const [usernameError, setUsernameError] = useState("");
+    const [passwordError, setPasswordError] = useState("");
+
+    const [registerResult, setRegisterResult] = useState({ hide: true, message: "", onClose: () => { }, type: "info" });
+
+    const handleRegister = async (e) => {
+        e.preventDefault();
+        console.log("Register data:", registerData);
+        let isValid = true;
+        if (!validators.isValidEmail(registerData.email)) {
+            setEmailError("Email không hợp lệ");
+            isValid = false;
+        }
+        if (!validators.isValidUsername(registerData.username)) {
+            setUsernameError("Tên tài khoản phải dài ít nhất 3 ký tự và chỉ chứa chữ cái, số và dấu gạch dưới, dấu cách");
+            isValid = false;
+        }
+        if (!validators.isValidPassword(registerData.password)) {
+            setPasswordError("Mật khẩu phải dài ít nhất 8 ký tự");
+            isValid = false;
+        }
+        if (!isValid) return;
+        const registerResult = await AuthService.register(registerData);
+        if (registerResult && registerResult.status === HttpStatusCode.Created) {
+            // navigate(path.LOGIN, { state: { message: "Đăng ký thành công! Vui lòng đăng nhập." } });
+            setRegisterResult({
+                hide: false,
+                message: "Đăng ký thành công! Vui lòng đăng nhập.",
+                type: "success",
+                onClose: () => { }
+            });
+        } else {
+            setRegisterResult({
+                hide: false,
+                message: "Đăng ký thất bại. Vui lòng thử lại.",
+                type: "error",
+                onClose: () => { }
+            });
+        }
+    }
 
     return (
         <AuthLayout
@@ -21,35 +76,55 @@ export default function RegisterPage() {
                         type="email"
                         placeholder="Email"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        value={registerData.email}
+                        onChange={(e) => {
+                            setRegisterData({ ...registerData, email: e.target.value });
+                            setEmailError("");
+                        }}
                     />
+                    <span className="text-xs text-red-500">{emailError}</span>
                 </div>
                 <div>
                     <input
                         type="text"
                         placeholder="Tên tài khoản"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        value={registerData.username}
+                        onChange={(e) => {
+                            setRegisterData({ ...registerData, username: e.target.value });
+                            setUsernameError("");
+                        }}
                     />
+                    <span className="text-xs text-red-500">{usernameError}</span>
                 </div>
                 <div>
                     <input
                         type="password"
                         placeholder="Mật khẩu"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        value={registerData.password}
+                        onChange={(e) => {
+                            setRegisterData({ ...registerData, password: e.target.value });
+                            setPasswordError("")
+                        }
+                        }
                     />
+                    <span className="text-xs text-red-500">{passwordError}</span>
                 </div>
                 <div>
                     <select
                         className="w-1/3 border border-gray-300 bg-emerald-50 rounded-lg px-4 py-2
                         text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                        defaultValue="man"
+                        value={registerData.gender}
+                        onChange={(e) => setRegisterData({ ...registerData, gender: e.target.value })}
                     >
-                        <option value="man" className="rounded">Nam</option>
-                        <option value="woman" className="rounded">Nữ</option>
-                        <option value="others" className="rounded">Khác</option>
+                        <option value="male" className="rounded">Nam</option>
+                        <option value="female" className="rounded">Nữ</option>
+                        <option value="other" className="rounded">Khác</option>
                     </select>
                 </div>
                 <SubmitButton
-                    onClick={() => { }}
+                    onClick={(e) => { handleRegister(e); }}
                     classname="w-full bg-orange-500 hover:bg-red-600 text-white font-semibold"
                     label="Đăng ký tài khoản"
                 />
@@ -67,6 +142,13 @@ export default function RegisterPage() {
                     </a>
                 </p>
             </form>
+            <Notification
+                hide={registerResult.hide}
+                message={registerResult.message}
+                type={registerResult.type}
+                onClose={() => setRegisterResult({ ...registerResult, hide: true })} />
         </AuthLayout>
     );
 }
+
+export default RegisterPage;   

@@ -5,10 +5,24 @@ export const isValidEmail = (email) => {
 
 export const isValidPassword = (password) => {
     const cleanedPassword = password.replace(/\s/g, "");
-    return cleanedPassword.length >= 6;
+    return cleanedPassword.length >= 8;
 }
 
 export const isValidUsername = (username) => {
-    const usernameRegex = /^[a-zA-Z0-9_]{4,}$/; //dài tối thiểu 4 ký tự, chỉ chứa chữ cái, số và dấu gạch dưới
+    const usernameRegex = /^[\p{L}0-9_\s]{3,}$/u;
+    // \p{L} = mọi ký tự chữ (bao gồm có dấu, tiếng Việt, tiếng Nhật, v.v.)
+    // 0-9 = số
+    // _   = dấu gạch dưới
+    // \s  = khoảng trắng (space, tab, xuống dòng)
+    // {3,} = tối thiểu 3 ký tự
     return usernameRegex.test(username);
-}
+};
+
+
+const validators = {
+    isValidEmail,
+    isValidPassword,
+    isValidUsername,
+};
+
+export default validators;
