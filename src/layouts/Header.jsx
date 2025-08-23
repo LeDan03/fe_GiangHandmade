@@ -1,9 +1,10 @@
-import { Search, Heart, ShoppingCart, LogIn, UserPlus } from 'lucide-react';
+import { Search, Heart, ShoppingCart, LogIn, LogOut , UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // các thafh phần
 import ControlButton from '../components/buttons/controlButton';
+import SubmitButton from '../components/buttons/submitButton';
 
 import useAuthStore from '../store/useAuthStore';
 
@@ -14,8 +15,14 @@ export default function Header() {
 
     const navigate = useNavigate();
 
-    const user = useAuthStore((state) => state.user);
+    const user = useAuthStore((state) => state.currentUser);
     const [searchTerm, setSearchTerm] = useState('');
+
+    const handleLogout = () => {
+        useAuthStore.getState().logout();
+        sessionStorage.clear();
+        navigate(path.HOME);
+    }
     return (
         <header className="bg-white/90 backdrop-blur-md sticky top-0 z-50 shadow-sm border-b border-green-100">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -24,7 +31,6 @@ export default function Header() {
                         <div className="text-2xl">🐱</div>
                         <h1 className="text-xl font-bold text-emerald-800">Yarn Cats</h1>
                     </div>
-
                     {/* Search Bar - Desktop */}
                     <div className="hidden md:block flex-1 max-w-md mx-8">
                         <div className="relative">
@@ -42,12 +48,18 @@ export default function Header() {
                     <div className="flex items-center space-x-4">
                         {user && (
                             <>
-                                <button className="p-2 text-green-600 hover:bg-green-100 rounded-full transition-colors duration-200">
+                                <button className="p-2 text-green-600 hover:bg-green-100 rounded-full transition-colors duration-200 hover:scale-105">
                                     <Heart className="w-5 h-5" />
                                 </button>
-                                <button className="p-2 text-green-600 hover:bg-green-100 rounded-full transition-colors duration-200">
+                                <button className="p-2 text-green-600 hover:bg-green-100 rounded-full transition-colors duration-200 hover:scale-105">
                                     <ShoppingCart className="w-5 h-5" />
                                 </button>
+                                <SubmitButton
+                                    onClick={() => { handleLogout() }}
+                                    icon={LogOut}
+                                    label="Đăng xuất"
+                                    classname="bg-gray-300 text-white hover:bg-black"
+                                />
                             </>
                         )}
                         {!user && (

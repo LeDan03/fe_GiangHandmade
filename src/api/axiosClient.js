@@ -19,7 +19,7 @@ axiosClient.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
-        console.error("Axios error:", error);
+        console.error("Axios error: ", error);
         if (error.response?.status === 401 &&
             !originalRequest._retry &&
             !originalRequest.url.includes("/accessToken/refresh")) {

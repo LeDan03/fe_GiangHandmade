@@ -1,6 +1,7 @@
 const ControlButton = ({ onClick, icon: Icon, label, classname }) => {
     return (
         <button
+            type="button"
             onClick={onClick}
             className={`flex items-center justify-center space-x-2 min-w-16 h-10 rounded transition-transform duration-200 shadow-md hover:shadow-lg hover:scale-105 ${classname}`}
             aria-label={label}

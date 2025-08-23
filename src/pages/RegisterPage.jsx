@@ -27,7 +27,7 @@ const RegisterPage = () => {
     const [usernameError, setUsernameError] = useState("");
     const [passwordError, setPasswordError] = useState("");
 
-    const [registerResult, setRegisterResult] = useState({ hide: true, message: "", onClose: () => { }, type: "info" });
+    const [registerResult, setRegisterResult] = useState({ hide: true, message: "", onclose: () => { }, type: "info" });
 
     const handleRegister = async (e) => {
         e.preventDefault();
@@ -46,21 +46,27 @@ const RegisterPage = () => {
             isValid = false;
         }
         if (!isValid) return;
-        const registerResult = await AuthService.register(registerData);
-        if (registerResult && registerResult.status === HttpStatusCode.Created) {
-            // navigate(path.LOGIN, { state: { message: "Đăng ký thành công! Vui lòng đăng nhập." } });
+        try {
+            const registerResult = await AuthService.register(registerData);
+
+            if (registerResult && registerResult.status === HttpStatusCode.Created) {
+                setRegisterResult({
+                    hide: false,
+                    message: "Đăng ký thành công! Vui lòng đăng nhập.",
+                    type: "success",
+                    onclose: () => { setRegisterResult({ hide: true, message: "", onclose: () => { }, type: "info" }); }
+                });
+            }
+        } catch (error) {
+            let message = "Đăng ký thất bại, vui lòng thử lại.";
+            if (error.response && error.response.data && error.response.data.message) {
+                message = error.response.data.message;
+            }
             setRegisterResult({
                 hide: false,
-                message: "Đăng ký thành công! Vui lòng đăng nhập.",
-                type: "success",
-                onClose: () => { }
-            });
-        } else {
-            setRegisterResult({
-                hide: false,
-                message: "Đăng ký thất bại. Vui lòng thử lại.",
+                message,
                 type: "error",
-                onClose: () => { }
+                onclose: () => { setRegisterResult({ hide: true, message: "", onclose: () => { }, type: "info" }); }
             });
         }
     }
@@ -146,7 +152,7 @@ const RegisterPage = () => {
                 hide={registerResult.hide}
                 message={registerResult.message}
                 type={registerResult.type}
-                onClose={() => setRegisterResult({ ...registerResult, hide: true })} />
+                onClose={registerResult.onclose} />
         </AuthLayout>
     );
 }

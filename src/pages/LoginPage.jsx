@@ -1,16 +1,53 @@
 import { useNavigate } from "react-router-dom";
 
 import { FcGoogle } from "react-icons/fc";
+
 import AuthLayout from "../layouts/AuthLayout";
 
 import SubmitButton from "../components/buttons/SubmitButton";
 import ControlButton from "../components/buttons/controlButton";
 
 import path from "../utils/path";
+import { useState } from "react";
+import AuthService from "../services/AuthService";
+import { HttpStatusCode } from "axios";
+import useAuthStore from "../store/useAuthStore";
+import Notification from "../components/Notification";
 
 export default function LoginPage() {
 
     const navigate = useNavigate();
+
+    const [loginData, setLoginData] = useState({ email: "", password: "" });
+    const [loginResult, setLoginResult] = useState({ hide: true, message: "", onclose: () => { }, type: "info" })
+
+    const handleEmailLogin = async (e) => {
+        e.preventDefault();
+        try {
+            const result = await AuthService.login(loginData);
+            if (result && result.status === HttpStatusCode.Ok) {
+                useAuthStore.getState().setCurrentUser(result.data.user)
+                navigate(path.HOME);
+            }
+        } catch (error) {
+            console.warn(error)
+            let message = "Đăng nhập thất bại, vui lòng thử lại";
+            if (error.response && error.response.data && error.response.data.message) {
+                message = error.response.data.message;
+            }
+            setLoginResult({
+                hide: false,
+                message,
+                type: "warning",
+                onclose: () => { setLoginResult({ hide: true, message: "", onclose: () => { }, type: "info" }) }
+            })
+        }
+    }
+
+    const handleGoogleLogin = () => {
+        window.location.href = "http://localhost:8089/oauth2/authorization/google";
+    }
+
 
     return (
         <AuthLayout
@@ -23,6 +60,8 @@ export default function LoginPage() {
                         type="email"
                         placeholder="Email"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        value={loginData.email}
+                        onChange={(e) => { setLoginData({ ...loginData, email: e.target.value }) }}
                     />
                 </div>
                 <div>
@@ -30,10 +69,12 @@ export default function LoginPage() {
                         type="password"
                         placeholder="Mật khẩu"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        value={loginData.password}
+                        onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                     />
                 </div>
                 <SubmitButton
-                    onClick={() => {}}
+                    onClick={(e) => { handleEmailLogin(e) }}
                     classname="w-full bg-orange-500 hover:bg-lime-600 text-white font-semibold"
                     label="Đăng nhập"
                 />
@@ -45,7 +86,7 @@ export default function LoginPage() {
                 </div>
 
                 <ControlButton
-                    onClick={() => {}}
+                    onClick={() => { handleGoogleLogin() }}
                     label="Đăng nhập với Google"
                     icon={FcGoogle}
                     classname="w-full flex items-center justify-center gap-3 border border-gray-300 hover:bg-lime-400 hover:text-white text-gray-600 font-semibold rounded-lg px-4 py-2"
@@ -58,6 +99,12 @@ export default function LoginPage() {
                     </a>
                 </p>
             </form>
+            <Notification
+                hide={loginResult.hide}
+                type={loginResult.type}
+                message={loginResult.message}
+                onClose={loginResult.onclose}
+            />
         </AuthLayout>
     );
 }
