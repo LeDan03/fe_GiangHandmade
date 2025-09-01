@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Heart, ShoppingCart, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
+import useAuthStore from '../store/useAuthStore';
 
 // style
 import '../styles/global.css';
+import path from '../utils/path';
 
 const HomePage = () => {
+
+  const navigate = useNavigate();
+
   const [currentSlide, setCurrentSlide] = useState(0);
+  const currentUser = useAuthStore((state) => state.currentUser);
 
   const [favorites, setFavorites] = useState([]);
 
@@ -96,6 +104,12 @@ const HomePage = () => {
     }
   ];
 
+  useEffect(() => {
+    if (currentUser?.role === 'ADMIN') {
+      navigate(path.MANAGE);
+    }
+  }, []);
+
   // Auto slide
   useEffect(() => {
     const timer = setInterval(() => {
@@ -131,10 +145,10 @@ const HomePage = () => {
                 <div
                   key={product.id}
                   className={`absolute inset-0 transition-all duration-700 ease-in-out transform ${index === currentSlide
-                      ? 'opacity-100 translate-x-0'
-                      : index < currentSlide
-                        ? 'opacity-0 -translate-x-full'
-                        : 'opacity-0 translate-x-full'
+                    ? 'opacity-100 translate-x-0'
+                    : index < currentSlide
+                      ? 'opacity-0 -translate-x-full'
+                      : 'opacity-0 translate-x-full'
                     }`}
                 >
                   <div className="grid md:grid-cols-2 h-full">
@@ -240,8 +254,8 @@ const HomePage = () => {
                   <button
                     onClick={() => toggleFavorite(product.id)}
                     className={`absolute top-3 right-3 p-2 rounded-full transition-all duration-300 ${favorites.includes(product.id)
-                        ? 'bg-red-500 text-white'
-                        : 'bg-white/80 text-gray-600 hover:bg-red-500 hover:text-white'
+                      ? 'bg-red-500 text-white'
+                      : 'bg-white/80 text-gray-600 hover:bg-red-500 hover:text-white'
                       }`}
                   >
                     <Heart className="w-4 h-4" fill={favorites.includes(product.id) ? 'currentColor' : 'none'} />

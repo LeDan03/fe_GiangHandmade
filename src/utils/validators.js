@@ -17,12 +17,15 @@ export const isValidUsername = (username) => {
     // {3,} = tối thiểu 3 ký tự
     return usernameRegex.test(username);
 };
-
+export const isValidProductImageCount = (quantity) => {
+    return quantity > 0 && quantity < 4;
+}
 
 const validators = {
     isValidEmail,
     isValidPassword,
     isValidUsername,
+    isValidProductImageCount
 };
 
 export default validators;

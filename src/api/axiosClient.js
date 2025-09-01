@@ -22,15 +22,19 @@ axiosClient.interceptors.response.use(
         console.error("Axios error: ", error);
         if (error.response?.status === 401 &&
             !originalRequest._retry &&
-            !originalRequest.url.includes("/accessToken/refresh")) {
+            !originalRequest.url.includes("/tokens/refresh")) {
             originalRequest._retry = true;
             try {
-                await refreshClient.post("/auth/accessToken/refresh");
+                const result = await refreshClient.post("/auth/tokens/refresh");
+                console.log("Refreshed access token:", result.data.accessToken);
                 // Cap nhat lai access token moi vao header mac dinh cua axios neu khong dung cookie
                 // axiosClient.defaults.headers.common["Authorization"] = `Bearer ${response.data.accessToken}`;
                 return axiosClient(originalRequest);
             } catch (refreshError) {
                 console.error("Refresh token failed:", refreshError);
+                if (refreshError.response?.status === 403) {
+                    window.location.href = path.LOGIN;
+                }
                 return Promise.reject(refreshError);
             }
         }

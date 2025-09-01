@@ -6,6 +6,7 @@ import MainLayout from "../layouts/MainLayout.jsx";
 import HomePage from "../pages/HomePage.jsx";
 import LoginPage from "../pages/LoginPage.jsx";
 import RegisterPage from "../pages/RegisterPage.jsx";
+import ManagePage from "../pages/ManagePage/ManagePage.jsx";
 
 export const router = createBrowserRouter([
     {
@@ -25,5 +26,9 @@ export const router = createBrowserRouter([
     {
         path: path.REGISTER,
         element: <RegisterPage />
+    },
+    {
+        path: path.MANAGE,
+        element: <ManagePage />
     }
 ])

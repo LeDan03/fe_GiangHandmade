@@ -4,7 +4,7 @@ import { FcGoogle } from "react-icons/fc";
 
 import AuthLayout from "../layouts/AuthLayout";
 
-import SubmitButton from "../components/buttons/SubmitButton";
+import SubmitButton from "../components/buttons/submitButton";
 import ControlButton from "../components/buttons/controlButton";
 
 import path from "../utils/path";
@@ -19,7 +19,7 @@ export default function LoginPage() {
     const navigate = useNavigate();
 
     const [loginData, setLoginData] = useState({ email: "", password: "" });
-    const [loginResult, setLoginResult] = useState({ hide: true, message: "", onclose: () => { }, type: "info" })
+    const [loginResult, setLoginResult] = useState({ hide: true, title: "", message: "", onclose: () => { }, type: "info" })
 
     const handleEmailLogin = async (e) => {
         e.preventDefault();
@@ -27,20 +27,26 @@ export default function LoginPage() {
             const result = await AuthService.login(loginData);
             if (result && result.status === HttpStatusCode.Ok) {
                 useAuthStore.getState().setCurrentUser(result.data.user)
-                navigate(path.HOME);
+                if (result.data.user.role === "ADMIN") {
+                    navigate(path.MANAGE);
+                }
+                else { navigate(path.HOME); }
             }
         } catch (error) {
-            console.warn(error)
-            let message = "Đăng nhập thất bại, vui lòng thử lại";
+            let message = "Vui lòng thử lại.";
+            console.warn("Login error:", error);
             if (error.response && error.response.data && error.response.data.message) {
                 message = error.response.data.message;
             }
             setLoginResult({
                 hide: false,
+                title: "Đăng nhập thất bại",
                 message,
-                type: "warning",
-                onclose: () => { setLoginResult({ hide: true, message: "", onclose: () => { }, type: "info" }) }
-            })
+                type: "error",
+                onclose: () => {
+                    setLoginResult({ hide: true, title: "", message: "", onclose: () => { }, type: "info" });
+                }
+            });
         }
     }
 
@@ -101,6 +107,7 @@ export default function LoginPage() {
             </form>
             <Notification
                 hide={loginResult.hide}
+                title={loginResult.title}
                 type={loginResult.type}
                 message={loginResult.message}
                 onClose={loginResult.onclose}

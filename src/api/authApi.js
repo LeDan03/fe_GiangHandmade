@@ -1,10 +1,10 @@
 import axiosClient from "./axiosClient";
 
 const authApi = {
-    register: (registerData) => { return axiosClient.post("/auth/registration/email", registerData) },
-    login: (loginData) => { return axiosClient.post("/auth/login", loginData) },
-    logout: () => { return axiosClient.post("/auth/logout") },
-    refreshAccessToken: () => { return axiosClient.post("/auth/accessToken/refresh") }
+    register: (registerData) => { return axiosClient.post("/auth/users/email", registerData) },
+    login: (loginData) => { return axiosClient.post("/auth/sessions", loginData) },
+    logout: () => { return axiosClient.delete("/auth/sessions") },
+    refreshAccessToken: () => { return axiosClient.post("/auth/tokens/refresh") }
 }
 
 export default authApi; 

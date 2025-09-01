@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
+
 import AuthService from "../services/AuthService";
 
 import AuthLayout from "../layouts/AuthLayout";
 
-import SubmitButton from "../components/buttons/SubmitButton";
+import SubmitButton from "../components/buttons/submitButton";
 import Notification from "../components/Notification";
 
 import path from "../utils/path";
@@ -17,7 +18,7 @@ const RegisterPage = () => {
 
     const [registerData, setRegisterData] = useState({
         email: "",
-        username: "",
+        name: "",
         password: "",
         gender: "male",
         authProviders: "EMAIL"
@@ -27,17 +28,19 @@ const RegisterPage = () => {
     const [usernameError, setUsernameError] = useState("");
     const [passwordError, setPasswordError] = useState("");
 
-    const [registerResult, setRegisterResult] = useState({ hide: true, message: "", onclose: () => { }, type: "info" });
+    const [registerResult, setRegisterResult] = useState({ hide: true, title: "", message: "", onclose: () => { }, type: "info" });
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleRegister = async (e) => {
         e.preventDefault();
+        setIsLoading(true);
         console.log("Register data:", registerData);
         let isValid = true;
         if (!validators.isValidEmail(registerData.email)) {
             setEmailError("Email không hợp lệ");
             isValid = false;
         }
-        if (!validators.isValidUsername(registerData.username)) {
+        if (!validators.isValidUsername(registerData.name)) {
             setUsernameError("Tên tài khoản phải dài ít nhất 3 ký tự và chỉ chứa chữ cái, số và dấu gạch dưới, dấu cách");
             isValid = false;
         }
@@ -49,24 +52,34 @@ const RegisterPage = () => {
         try {
             const registerResult = await AuthService.register(registerData);
 
-            if (registerResult && registerResult.status === HttpStatusCode.Created) {
+            if (registerResult && registerResult.status === HttpStatusCode.Ok) {
                 setRegisterResult({
                     hide: false,
-                    message: "Đăng ký thành công! Vui lòng đăng nhập.",
+                    title: "Đăng ký thành công",
+                    message: "Vui lòng kiểm tra email để xác thực tài khoản.",
                     type: "success",
-                    onclose: () => { setRegisterResult({ hide: true, message: "", onclose: () => { }, type: "info" }); }
+                    onclose: () => {
+                        setRegisterResult({ hide: true, title: "", message: "", onclose: () => { }, type: "info" });
+                        setIsLoading(false);
+                        navigate(path.LOGIN);
+                    }
                 });
             }
         } catch (error) {
-            let message = "Đăng ký thất bại, vui lòng thử lại.";
+            let message = "Vui lòng thử lại.";
+            console.warn("Register error:", error);
             if (error.response && error.response.data && error.response.data.message) {
                 message = error.response.data.message;
             }
             setRegisterResult({
                 hide: false,
+                title: "Đăng ký thất bại",
                 message,
                 type: "error",
-                onclose: () => { setRegisterResult({ hide: true, message: "", onclose: () => { }, type: "info" }); }
+                onclose: () => {
+                    setRegisterResult({ hide: true, title: "", message: "", onclose: () => { }, type: "info" });
+                    setIsLoading(false);
+                }
             });
         }
     }
@@ -95,9 +108,9 @@ const RegisterPage = () => {
                         type="text"
                         placeholder="Tên tài khoản"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                        value={registerData.username}
+                        value={registerData.name}
                         onChange={(e) => {
-                            setRegisterData({ ...registerData, username: e.target.value });
+                            setRegisterData({ ...registerData, name: e.target.value });
                             setUsernameError("");
                         }}
                     />
@@ -117,22 +130,49 @@ const RegisterPage = () => {
                     />
                     <span className="text-xs text-red-500">{passwordError}</span>
                 </div>
-                <div>
-                    <select
-                        className="w-1/3 border border-gray-300 bg-emerald-50 rounded-lg px-4 py-2
-                        text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                        value={registerData.gender}
-                        onChange={(e) => setRegisterData({ ...registerData, gender: e.target.value })}
-                    >
-                        <option value="male" className="rounded">Nam</option>
-                        <option value="female" className="rounded">Nữ</option>
-                        <option value="other" className="rounded">Khác</option>
-                    </select>
+                <div className="flex space-x-6">
+                    <label className="flex items-center space-x-2">
+                        <input
+                            type="radio"
+                            name="gender"
+                            value="male"
+                            checked={registerData.gender === "male"}
+                            onChange={(e) => setRegisterData({ ...registerData, gender: e.target.value })}
+                            className="text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span>Nam</span>
+                    </label>
+
+                    <label className="flex items-center space-x-2">
+                        <input
+                            type="radio"
+                            name="gender"
+                            value="female"
+                            checked={registerData.gender === "female"}
+                            onChange={(e) => setRegisterData({ ...registerData, gender: e.target.value })}
+                            className="text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span>Nữ</span>
+                    </label>
+
+                    <label className="flex items-center space-x-2">
+                        <input
+                            type="radio"
+                            name="gender"
+                            value="other"
+                            checked={registerData.gender === "other"}
+                            onChange={(e) => setRegisterData({ ...registerData, gender: e.target.value })}
+                            className="text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span>Khác</span>
+                    </label>
                 </div>
+
                 <SubmitButton
                     onClick={(e) => { handleRegister(e); }}
                     classname="w-full bg-orange-500 hover:bg-red-600 text-white font-semibold"
                     label="Đăng ký tài khoản"
+                    loading={isLoading}
                 />
 
                 <div className="flex items-center gap-2">
@@ -150,6 +190,7 @@ const RegisterPage = () => {
             </form>
             <Notification
                 hide={registerResult.hide}
+                title={registerResult.title}
                 message={registerResult.message}
                 type={registerResult.type}
                 onClose={registerResult.onclose} />
