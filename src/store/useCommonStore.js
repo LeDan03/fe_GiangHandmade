@@ -8,6 +8,8 @@ const useCommonStore = create(
             setProducts: (products) => set({ products }),
             categories: [],
             setCategories: (categories) => set({ categories }),
+            productStatuses: [],
+            setProductStatuses: (statuses) => set({ productStatuses: statuses })
         }),
         {
             name: "common-storage",

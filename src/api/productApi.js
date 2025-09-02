@@ -14,6 +14,7 @@ const productApi = {
     createProduct: (data) => { return axiosClient.post('/products', data) },
     updateProduct: (id, data) => { return axiosClient.put(`/products?productId=${id}`, data) },
     deleteProduct: (id) => { return axiosClient.delete(`/products?productId=${id}`) },
+    getAllProductStatuses: () => { return axiosClient.get('/products/statuses') }
 };
 
 export default productApi;

@@ -46,5 +46,14 @@ const ProductService = {
             console.warn(`Xóa sản phẩm với id: ${id} thất bại:`, error);
         }
     },
+    getAllProductStatuses: async () => {
+        try {
+            const response = await productApi.getAllProductStatuses();
+            return response;
+        } catch (error) {
+            console.warn("Lấy map trạng thái sản phẩm thất bại", error);
+            return error;
+        }
+    }
 };
 export default ProductService;

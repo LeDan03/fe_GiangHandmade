@@ -26,7 +26,7 @@ axiosClient.interceptors.response.use(
             originalRequest._retry = true;
             try {
                 const result = await refreshClient.post("/auth/tokens/refresh");
-                console.log("Refreshed access token:", result.data.accessToken);
+                // console.log("Refreshed access token:", result.data.accessToken);
                 // Cap nhat lai access token moi vao header mac dinh cua axios neu khong dung cookie
                 // axiosClient.defaults.headers.common["Authorization"] = `Bearer ${response.data.accessToken}`;
                 return axiosClient(originalRequest);

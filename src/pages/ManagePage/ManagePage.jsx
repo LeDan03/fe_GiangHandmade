@@ -28,8 +28,10 @@ import {
 import ActionButton from '../../components/buttons/ActionButton';
 import ProductModal from './ProductModal';
 import Notification from '../../components/Notification';
+import SubmitButton from '../../components/buttons/SubmitButton';
 
 import useCommonStore from '../../store/useCommonStore';
+import useAuthStore from '../../store/useAuthStore';
 
 import CategoryService from '../../services/CategoryService';
 import ProductService from '../../services/ProductService';
@@ -40,17 +42,51 @@ const ManagePage = () => {
   const categories = useCommonStore((state) => state.categories);
   const setCategories = useCommonStore((state) => state.setCategories);
 
+  const currentUser = useAuthStore((state) => state.currentUser);
+
   const products = useCommonStore((state) => state.products);
   const setProducts = useCommonStore((state) => state.setProducts);
+  const productStatuses = useCommonStore((state) => state.productStatuses);
+  const setProductStatuses = useCommonStore((state) => state.setProductStatuses);
 
   const [activeTab, setActiveTab] = useState('dashboard');
+
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchCategoryId, setSearchCategoryId] = useState(null);
+  const [searchProductStatus, setSearchProductStatus] = useState("");
+  const [searchResult, setSearchResult] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [activeSubmenu, setActiveSubmenu] = useState(null);
 
   const [notification, setNotification] = useState({ hide: true, title: '', message: '', onClose: () => { }, type: 'info' });
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('view');
   const [selectedProduct, setSelectedProduct] = useState(null);
+
+  const handleFindProducts = async () => {
+    setIsSearching(true);
+    try {
+      const result = await ProductService.findProducts(searchQuery, searchCategoryId, searchProductStatus);
+      if (result && result.status === HttpStatusCode.Ok) {
+        setSearchResult(result.data);
+      } else {
+        setNotification({ hide: false, title: 'KHÔNG TÌM THẤY', message: result.data.message, onClose: () => { }, type: 'warning' })
+        setSearchResult([]);
+      }
+      setSearchCategoryId(null);
+      setSearchProductStatus(null);
+      setIsSearching(false);
+    } catch (error) {
+
+      const errMsg = error.response?.data.message ? error.response.data.message : 'Lỗi'
+      setNotification({ hide: false, title: 'TÌM KIẾM GẶP LỖI', message: errMsg, onClose: () => { }, type: 'error' });
+      setSearchResult(null);
+      setIsSearching(false);
+    }
+
+  }
 
   const handleDeleteProduct = async (productId) => {
     const result = await ProductService.deleteProduct(productId);
@@ -73,6 +109,18 @@ const ManagePage = () => {
   }
 
   useEffect(() => {
+    if (!currentUser || !currentUser.role === 'ADMIN') {
+      window.location.href = '/';
+    }
+  }, []);
+
+  useEffect(() => {
+    if (searchQuery === '') {
+      setSearchResult(null)
+    }
+  }, [searchQuery]);
+
+  useEffect(() => {
     try {
       const fetchCategories = async () => {
         const result = await CategoryService.getAllCategories();
@@ -80,13 +128,28 @@ const ManagePage = () => {
           setCategories(result.data);
         }
       };
-      if (categories.length === 0) {
+      if (!categories || categories.length === 0) {
         fetchCategories();
       }
     } catch (error) {
       console.error("Lấy dánh sách phân loại gặp lỗi", error)
     }
-  }, [categories.length]);
+  }, []);
+
+  useEffect(() => {
+    const fetchProductStatuses = async () => {
+      try {
+        const result = await ProductService.getAllProductStatuses();
+        console.log("Fetch product statuses", result);
+        console.log("result data", result.data);
+        setProductStatuses(result.data)
+      } catch (error) {
+        console.error("Lấy danh sách trạng thái sản phẩm thất bại", error);
+      }
+    };
+
+    fetchProductStatuses();
+  }, []);
 
   useEffect(() => {
     try {
@@ -96,11 +159,13 @@ const ManagePage = () => {
           setProducts(result.data);
         }
       };
-      fetchProducts();
+      if (!products || products.length === 0) {
+        fetchProducts();
+      }
     } catch (error) {
       console.error("Lấy dánh sách sản phẩm gặp lỗi", error)
     }
-  }, [products]);
+  }, []);
 
   // Mock data
   const stats = {
@@ -309,16 +374,129 @@ const ManagePage = () => {
             className="w-full pl-10 pr-4 py-3 border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all duration-200"
           />
         </div>
-        <ActionButton variant="secondary">
-          <Filter className="w-4 h-4" />
-          Bộ lọc
-        </ActionButton>
+        <SubmitButton
+          onClick={() => { handleFindProducts() }}
+          label=""
+          icon={Search}
+          classname="bg-green-500 text-white hover:bg-green-600 h-12"
+          loading={isSearching}
+        />
+
+        {/* Filter Dropdown */}
+        <div className="relative"
+          onMouseEnter={() => setIsFilterOpen(true)}
+          onMouseLeave={() => {
+            setIsFilterOpen(false);
+            setActiveSubmenu(null);
+          }}>
+          <ActionButton
+            variant="secondary"
+            onMouseEnter={() => setIsFilterOpen(true)}
+            onMouseLeave={() => {
+              // Delay để có thời gian di chuột vào dropdown
+              setTimeout(() => {
+                if (!document.querySelector('.filter-dropdown:hover')) {
+                  setIsFilterOpen(false);
+                  setActiveSubmenu(null);
+                }
+              }, 900);
+            }}
+          >
+            <Filter className="w-4 h-4" />
+            Bộ lọc
+          </ActionButton>
+
+          {/* Main Dropdown */}
+          {isFilterOpen && (
+            <div
+              className="filter-dropdown absolute top-full right-0 mt-1 w-56 bg-white border border-green-200 rounded-lg shadow-lg z-50"
+            >
+              <div className='px-4 py-3 hover:bg-green-50 cursor-pointer border-b border-green-100 flex items-center'
+                onClick={() => { setSearchCategoryId(null); setSearchProductStatus(null); setSearchResult(null) }}>
+                <p>Tất cả</p>
+              </div>
+              {/* Lọc theo phân loại */}
+              <div
+                className="relative px-4 py-3 hover:bg-green-50 cursor-pointer border-b border-green-100 flex items-center justify-between"
+                onMouseEnter={() => setActiveSubmenu('category')}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-green-800 font-medium">Lọc theo phân loại</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-green-400" />
+
+                {/* Submenu cho categories */}
+                {activeSubmenu === 'category' && (
+                  <div className="absolute right-full top-0 mr-1 w-48 bg-white border border-green-200 rounded-lg shadow-lg z-50">
+                    {categories.map((category) => (
+                      <div
+                        key={category.id}
+                        className="px-4 py-2 hover:bg-green-50 cursor-pointer text-green-700 border-b border-green-50 last:border-b-0"
+                        onClick={() => {
+                          // Handle category filter selection
+                          handleFindProducts()
+                          console.log('Selected category:', category);
+                          setSearchCategoryId(category.id)
+                          setIsFilterOpen(false);
+                          setActiveSubmenu(null);
+                        }}
+                      >
+                        {category.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Lọc theo trạng thái */}
+              <div
+                className="relative px-4 py-3 hover:bg-green-50 cursor-pointer flex items-center justify-between"
+                onMouseEnter={() => setActiveSubmenu('status')}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span className="text-green-800 font-medium">Lọc theo trạng thái</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-green-400" />
+
+                {/* Submenu cho status */}
+                {activeSubmenu === 'status' && (
+                  <div className="absolute right-full top-0 mr-1 w-48 bg-white border border-green-200 rounded-lg shadow-lg z-50">
+                    {productStatuses.length !== 0 ? productStatuses.map((status) => (
+                      <div
+                        key={status.value}
+                        className="px-4 py-2 hover:bg-green-50 cursor-pointer text-green-700 border-b border-green-50 last:border-b-0"
+                        onClick={() => {
+                          handleFindProducts()
+                          // Handle status filter selection
+                          setSearchProductStatus(status.value)
+                          console.log('Selected status:', status);
+                          setIsFilterOpen(false);
+                          setActiveSubmenu(null);
+                        }}
+                      >
+                        {status.label}
+                      </div>
+                    )) : (
+                      <div className='h-10'>Không có</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Grid Layout */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {products.map((product) => (
-          <div key={product.id} className="bg-white rounded-2xl shadow-lg border border-green-100 overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 hover:scale-105">
+        {(searchResult ? searchResult : products).map((product) => (
+          <div
+            key={product.id}
+            className="bg-white rounded-2xl shadow-lg border border-green-100 overflow-hidden 
+               hover:shadow-xl transition-all duration-300 hover:-translate-y-1 hover:scale-105"
+          >
             {/* Product Image */}
             <div className="relative h-48 bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center">
               {product.images[0] ? (
@@ -332,15 +510,18 @@ const ManagePage = () => {
               )}
               {/* Status Badge */}
               <div className="absolute top-3 right-3">
-                <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(product.status)}`}>
-                  {product.status === 'AVAILABLE' ? 'Đang bán' : 'Hết hàng'}
+                <span
+                  className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                    product.status
+                  )}`}
+                >
+                  {product.status === "AVAILABLE" ? "Đang bán" : "Hết hàng"}
                 </span>
               </div>
             </div>
 
             {/* Product Info */}
             <div className="p-4 space-y-3">
-              {/* Product Name - Fixed height with ellipsis */}
               <h3 className="font-semibold text-gray-800 text-lg h-14 overflow-hidden">
                 <span className="block truncate leading-7" title={product.name}>
                   {product.name}
@@ -359,7 +540,10 @@ const ManagePage = () => {
                 <span className="font-bold text-green-700 text-lg">
                   {product.price.toLocaleString()}đ
                 </span>
-                <span className={`text-sm font-medium ${product.quantity < 20 ? 'text-red-600' : 'text-gray-600'}`}>
+                <span
+                  className={`text-sm font-medium ${product.quantity < 20 ? "text-red-600" : "text-gray-600"
+                    }`}
+                >
                   Kho: {product.quantity}
                 </span>
               </div>
@@ -368,14 +552,22 @@ const ManagePage = () => {
               <div className="flex gap-2 pt-2 border-t border-gray-100">
                 <button
                   className="flex-1 p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors flex items-center justify-center"
-                  onClick={() => { setModalMode('view'); setSelectedProduct(product); setModalOpen(true); }}
+                  onClick={() => {
+                    setModalMode("view");
+                    setSelectedProduct(product);
+                    setModalOpen(true);
+                  }}
                   title="Xem chi tiết"
                 >
                   <Eye className="w-4 h-4" />
                 </button>
                 <button
                   className="flex-1 p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-center"
-                  onClick={() => { setModalMode('edit'); setSelectedProduct(product); setModalOpen(true); }}
+                  onClick={() => {
+                    setModalMode("edit");
+                    setSelectedProduct(product);
+                    setModalOpen(true);
+                  }}
                   title="Chỉnh sửa"
                 >
                   <Edit className="w-4 h-4" />
@@ -391,6 +583,7 @@ const ManagePage = () => {
             </div>
           </div>
         ))}
+
       </div>
 
       <ProductModal
@@ -633,14 +826,21 @@ const ManagePage = () => {
   return (
     <div className="p-6">
       {/* Menu bên trái hoặc tabs */}
+
       <div className="flex gap-4 mb-6 bg-gray-200 h-10 space-x-4 rounded-md">
+        <div className="flex items-center px-3 mr-2">
+          <img
+            src={currentUser.avatarUrl}
+            alt="Logo"
+            className="w-20 h-20 rounded-full object-cover border-2 border-white shadow"
+          />
+        </div>
         <button onClick={() => setActiveTab("dashboard")} className={`rounded p-1 ${activeTab === 'dashboard' ? 'bg-lime-400' : ''}`}>Dashboard</button>
         <button onClick={() => setActiveTab("products")} className={`rounded p-1 ${activeTab === 'products' ? 'bg-lime-400' : ''}`}>Sản phẩm</button>
         <button onClick={() => setActiveTab("orders")} className={`rounded p-1 ${activeTab === 'orders' ? 'bg-lime-400' : ''}`}>Đơn hàng</button>
         <button onClick={() => setActiveTab("categories")} className={`rounded p-1 ${activeTab === 'categories' ? 'bg-lime-400' : ''}`}>Phân loại</button>
         <button onClick={() => setActiveTab("custom-orders")} className={`rounded p-1 ${activeTab === 'custom-orders' ? 'bg-lime-400' : ''}`}>Đặt riêng</button>
         <button onClick={() => setActiveTab("support")} className={`rounded p-1 ${activeTab === 'support' ? 'bg-lime-400' : ''}`}>Hỗ trợ</button>
-
       </div>
 
       {/* Render nội dung theo tab */}
