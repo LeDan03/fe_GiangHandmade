@@ -34,7 +34,7 @@ export default function Header() {
                     {/* Logo và Brand */}
                     <div className="flex items-center space-x-2">
                         <Logo />
-                        <h1 className="text-lg sm:text-xl font-bold text-emerald-800">Yarn Cats</h1>
+                        <h1 className="text-lg sm:text-xl font-bold text-emerald-800">Giang Handmade</h1>
                     </div>
 
                     {/* Search Bar - Desktop */}

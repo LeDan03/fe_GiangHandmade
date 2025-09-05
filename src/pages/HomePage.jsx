@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Heart, ShoppingCart, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, ShoppingCart, Star, Box } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import useAuthStore from '../store/useAuthStore';
+import useCommonStore from '../store/useCommonStore';
 
 // style
 import '../styles/global.css';
@@ -43,66 +44,16 @@ const HomePage = () => {
   ];
 
   // Danh mục sản phẩm
-  const categories = [
-    { id: 1, name: "Mèo len", icon: "🐱", color: "bg-emerald-100" },
-    { id: 2, name: "Túi xách", icon: "👜", color: "bg-green-100" },
-    { id: 3, name: "Khăn len", icon: "🧣", color: "bg-teal-100" },
-    { id: 4, name: "Mũ len", icon: "🧢", color: "bg-mint-100" },
-    { id: 5, name: "Gấu bông", icon: "🧸", color: "bg-emerald-50" },
-    { id: 6, name: "Khác", icon: "✨", color: "bg-green-50" }
-  ];
+  const categories = useCommonStore((state) => state.categories);
+  const fetchCategories = useCommonStore((state) => state.fetchCategories);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [categories]);
 
   // Danh sách sản phẩm
-  const products = [
-    {
-      id: 1,
-      name: "Mèo len màu trắng",
-      image: "https://images.unsplash.com/photo-1574158622682-e40e69881006?w=300&h=300&fit=crop",
-      price: "250,000₫",
-      rating: 4.8,
-      reviews: 24
-    },
-    {
-      id: 2,
-      name: "Túi len handmade",
-      image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=300&h=300&fit=crop",
-      price: "320,000₫",
-      rating: 4.9,
-      reviews: 18
-    },
-    {
-      id: 3,
-      name: "Khăn len xanh lá",
-      image: "https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=300&h=300&fit=crop",
-      price: "180,000₫",
-      rating: 4.7,
-      reviews: 32
-    },
-    {
-      id: 4,
-      name: "Mũ len mèo con",
-      image: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=300&h=300&fit=crop",
-      price: "150,000₫",
-      rating: 4.6,
-      reviews: 15
-    },
-    {
-      id: 5,
-      name: "Gấu bông len",
-      image: "https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=300&h=300&fit=crop",
-      price: "280,000₫",
-      rating: 4.8,
-      reviews: 21
-    },
-    {
-      id: 6,
-      name: "Móc khóa mèo len",
-      image: "https://images.unsplash.com/photo-1574158622682-e40e69881006?w=300&h=300&fit=crop",
-      price: "89,000₫",
-      rating: 4.5,
-      reviews: 45
-    }
-  ];
+  const products = useCommonStore((state) => state.products);
+  const fetchProducts = useCommonStore((state) => state.fetchProducts);
 
   useEffect(() => {
     if (currentUser?.role === 'ADMIN') {
@@ -133,6 +84,16 @@ const HomePage = () => {
   const prevSlide = () => {
     setCurrentSlide((prev) => (prev - 1 + featuredProducts.length) % featuredProducts.length);
   };
+
+  useEffect(() => {
+    try {
+      if (products.length === 0) {
+        fetchProducts();
+      }
+    } catch (error) {
+      console.warn("Lấy danh sách sản phẩm thất bại", error);
+    }
+  }, [products]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-emerald-50">
@@ -212,21 +173,29 @@ const HomePage = () => {
             Danh mục sản phẩm
           </h2>
           <div className="flex overflow-x-auto md:grid md:grid-cols-6 gap-4 pb-4 md:pb-0">
-            {categories.map((category, index) => (
-              <div
-                key={category.id}
-                className={`flex-shrink-0 ${category.color} rounded-2xl p-6 text-center cursor-pointer hover:shadow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 min-w-[140px] md:min-w-0`}
-                style={{
-                  animationDelay: `${index * 100}ms`,
-                  animation: 'fadeInUp 0.6s ease-out forwards'
-                }}
-              >
-                <div className="text-4xl mb-3">{category.icon}</div>
-                <h3 className="font-semibold text-emerald-800 text-sm">
-                  {category.name}
-                </h3>
-              </div>
-            ))}
+            {categories.map((category, index) => {
+              const half = Math.ceil(categories.length / 2);
+              const isFirstHalf = index < half;
+
+              return (
+                <div
+                  key={category.id}
+                  className={`flex-shrink-0 rounded-2xl p-6 text-center cursor-pointer 
+            hover:shadow-lg transition-all duration-300 transform 
+            hover:scale-105 hover:-translate-y-1 min-w-[140px] md:min-w-0 
+            ${isFirstHalf ? "bg-lime-400" : "bg-emerald-400"}`}
+                  style={{
+                    animationDelay: `${index * 100}ms`,
+                    animation: "fadeInUp 0.6s ease-out forwards",
+                  }}
+                >
+                  <div className="text-4xl mb-3 flex justify-center items-center">
+                    <Box className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-sm text-white">{category.name}</h3>
+                </div>
+              );
+            })}
           </div>
         </section>
 
@@ -247,7 +216,7 @@ const HomePage = () => {
               >
                 <div className="relative">
                   <img
-                    src={product.image}
+                    src={product.images[0].secureUrl}
                     alt={product.name}
                     className="w-full h-32 md:h-48 object-cover"
                   />
@@ -278,7 +247,7 @@ const HomePage = () => {
 
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-emerald-600">
-                      {product.price}
+                      {product.price.toLocaleString("vi-VN")}đ
                     </span>
                     <button className="bg-green-500 hover:bg-green-600 text-white p-2 rounded-full transition-all duration-300 transform hover:scale-110">
                       <ShoppingCart className="w-4 h-4" />

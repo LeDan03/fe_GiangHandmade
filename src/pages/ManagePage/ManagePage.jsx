@@ -1,10 +1,11 @@
 import React, { useState, useEffect, use } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Package,
   ShoppingCart,
   Users,
-  BarChart3,
-  Settings,
+  CheckSquare,
+  Check,
   Plus,
   Search,
   Filter,
@@ -13,22 +14,25 @@ import {
   Eye,
   TrendingUp,
   DollarSign,
-  Calendar,
+  Tag,
   MessageSquare,
-  Bell,
-  Home,
+  ChevronDown,
+  X,
   Layers,
   ClipboardList,
   Wrench,
-  HelpCircle,
+  LogOut,
   ChevronRight,
   Star
 } from 'lucide-react';
 
 import ActionButton from '../../components/buttons/ActionButton';
 import ProductModal from './ProductModal';
+import CategoryModal from './CategoryModal';
 import Notification from '../../components/Notification';
 import SubmitButton from '../../components/buttons/SubmitButton';
+import ConfirmationModal from '../../components/modals/ComfirmationModal';
+import ControlButton from '../../components/buttons/ControlButton';
 
 import useCommonStore from '../../store/useCommonStore';
 import useAuthStore from '../../store/useAuthStore';
@@ -37,10 +41,15 @@ import CategoryService from '../../services/CategoryService';
 import ProductService from '../../services/ProductService';
 
 import { HttpStatusCode } from 'axios';
-
+import authApi from '../../api/authApi';
+import path from '../../utils/path';
 const ManagePage = () => {
+  const navigate = useNavigate();
+  const logout = useAuthStore((state) => state.logout)
+
   const categories = useCommonStore((state) => state.categories);
   const setCategories = useCommonStore((state) => state.setCategories);
+  const deleteCategory = useCommonStore((state) => state.deleteCategory);
 
   const currentUser = useAuthStore((state) => state.currentUser);
 
@@ -49,24 +58,116 @@ const ManagePage = () => {
   const productStatuses = useCommonStore((state) => state.productStatuses);
   const setProductStatuses = useCommonStore((state) => state.setProductStatuses);
 
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState([]);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+
   const [activeTab, setActiveTab] = useState('dashboard');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchCategoryId, setSearchCategoryId] = useState(null);
   const [searchProductStatus, setSearchProductStatus] = useState("");
   const [searchResult, setSearchResult] = useState(null);
-  const [isSearching, setIsSearching] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState(null);
 
   const [notification, setNotification] = useState({ hide: true, title: '', message: '', onClose: () => { }, type: 'info' });
+  const [confirmation, setConfirmation] = useState({ open: false, title: '', content: '', type: 'warning', onClose: () => { }, onConfirm: () => { }, loading: false });
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('view');
+  const [modalName, setModalName] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
+
+  const handleProductSelection = (productId) => {
+    setSelectedProductIds(prev => {
+      if (prev.includes(productId)) {
+        return prev.filter(id => id !== productId);
+      } else {
+        return [...prev, productId];
+      }
+    });
+  };
+
+  const handleBulkCategoryChange = async (newCategoryId) => {
+    try {
+      await ProductService.changeProductsCategory(newCategoryId, selectedProductIds);
+
+      setNotification({
+        hide: false,
+        title: 'Thành công',
+        message: `Đã chuyển ${selectedProductIds.length} sản phẩm sang phân loại mới`,
+        onClose: () => {
+          setNotification({ hide: true, title: '', message: '', onClose: () => { }, type: 'info' });
+        },
+        type: 'success'
+      });
+
+      setSelectedProductIds([]);
+      setCategoryDropdownOpen(false);
+      setIsSelectionMode(false);
+
+      await fetchProducts();
+      await fetchCategories();
+
+    } catch (error) {
+      setNotification({
+        hide: false,
+        title: 'Lỗi',
+        message: 'Không thể chuyển phân loại sản phẩm',
+        onClose: () => {
+          setNotification({ hide: true, title: '', message: '', onClose: () => { }, type: 'info' });
+        },
+        type: 'error'
+      });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProductIds.length === 0) {
+      return;
+    }
+    setIsLoading(true);
+    try {
+      //call api
+      await ProductService.deleteProducts(selectedProductIds);
+      setNotification({
+        hide: false,
+        title: 'Thành công',
+        message: `Đã xóa ${selectedProductIds.length} sản phẩm`,
+        onClose: () => {
+          setNotification({ hide: true, title: '', message: '', onClose: () => { }, type: 'info' });
+        },
+        type: 'success'
+      });
+      fetchProducts();
+      fetchCategories();
+      setSelectedProductIds([]);
+      setIsSelectionMode(false);
+
+      // Refresh products list
+      // await fetchProducts();
+      setIsLoading(false);
+      setConfirmation({ open: false, title: '', content: '', type: 'warning', onClose: () => { }, onConfirm: () => { }, loading: false });
+    } catch (error) {
+      setNotification({
+        hide: false,
+        title: 'Lỗi',
+        message: error.response.data.message,
+        onClose: () => {
+          setNotification({ hide: true, title: '', message: '', onClose: () => { }, type: 'info' });
+        },
+        type: 'error'
+      });
+      setIsLoading(false);
+      setConfirmation({ open: false, title: '', content: '', type: 'warning', onClose: () => { }, onConfirm: () => { }, loading: false });
+    }
+  };
   const handleFindProducts = async () => {
-    setIsSearching(true);
+    setIsLoading(true);
     try {
       const result = await ProductService.findProducts(searchQuery, searchCategoryId, searchProductStatus);
       if (result && result.status === HttpStatusCode.Ok) {
@@ -77,13 +178,13 @@ const ManagePage = () => {
       }
       setSearchCategoryId(null);
       setSearchProductStatus(null);
-      setIsSearching(false);
+      setIsLoading(false);
     } catch (error) {
 
       const errMsg = error.response?.data.message ? error.response.data.message : 'Lỗi'
       setNotification({ hide: false, title: 'TÌM KIẾM GẶP LỖI', message: errMsg, onClose: () => { }, type: 'error' });
       setSearchResult(null);
-      setIsSearching(false);
+      setIsLoading(false);
     }
 
   }
@@ -120,14 +221,15 @@ const ManagePage = () => {
     }
   }, [searchQuery]);
 
+  const fetchCategories = async () => {
+    const result = await CategoryService.getAllCategories();
+    if (result && result.status === HttpStatusCode.Ok && Array.isArray(result.data)) {
+      setCategories(result.data);
+    }
+  };
   useEffect(() => {
     try {
-      const fetchCategories = async () => {
-        const result = await CategoryService.getAllCategories();
-        if (result && result.status === HttpStatusCode.Ok && Array.isArray(result.data)) {
-          setCategories(result.data);
-        }
-      };
+
       if (!categories || categories.length === 0) {
         fetchCategories();
       }
@@ -151,14 +253,15 @@ const ManagePage = () => {
     fetchProductStatuses();
   }, []);
 
+  const fetchProducts = async () => {
+    const result = await ProductService.findProducts();
+    if (result && result.status === HttpStatusCode.Ok && Array.isArray(result.data)) {
+      setProducts(result.data);
+    }
+  };
   useEffect(() => {
     try {
-      const fetchProducts = async () => {
-        const result = await ProductService.findProducts();
-        if (result && result.status === HttpStatusCode.Ok && Array.isArray(result.data)) {
-          setProducts(result.data);
-        }
-      };
+
       if (!products || products.length === 0) {
         fetchProducts();
       }
@@ -240,7 +343,6 @@ const ManagePage = () => {
       </div>
     </div>
   );
-
 
 
   const TableRow = ({ children, className = '' }) => (
@@ -352,17 +454,129 @@ const ManagePage = () => {
 
   const renderProducts = () => (
     <div className="space-y-6 animate-fade-in">
+      {/* Header Section */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div>
           <h2 className="text-2xl font-bold text-green-800">Quản lý sản phẩm</h2>
           <p className="text-green-600">Quản lý toàn bộ sản phẩm trong cửa hàng</p>
         </div>
-        <ActionButton onClick={() => { setModalMode('add'); setSelectedProduct(null); setModalOpen(true); }}>
-          <Plus className="w-4 h-4" />
-          Thêm sản phẩm
-        </ActionButton>
+        <div className="flex gap-2">
+          {/* Select Mode Toggle */}
+          <ActionButton
+            onClick={() => {
+              setIsSelectionMode(!isSelectionMode);
+              if (!isSelectionMode) {
+                setSelectedProductIds([]);
+              }
+            }}
+            variant={isSelectionMode ? "primary" : "secondary"}
+            className={`${isSelectionMode ? 'bg-blue-500 text-white hover:bg-blue-600' : ''} transition-all duration-200`}
+          >
+            {isSelectionMode ? (
+              <>
+                <X className="w-4 h-4" />
+                Hủy chọn
+              </>
+            ) : (
+              <>
+                <CheckSquare className="w-4 h-4" />
+                Chọn
+              </>
+            )}
+          </ActionButton>
+
+          <ActionButton onClick={() => { setModalMode('add'); setSelectedProduct(null); setModalOpen(true); setModalName('product') }}>
+            <Plus className="w-4 h-4" />
+            Thêm sản phẩm
+          </ActionButton>
+        </div>
       </div>
 
+      {/* Selection Status Bar */}
+      {isSelectionMode && (
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg animate-slide-down">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-blue-700">
+                <CheckSquare className="w-5 h-5" />
+                <span className="font-medium">Chế độ chọn sản phẩm</span>
+              </div>
+              <div className="px-3 py-1 bg-blue-200 text-blue-800 rounded-full text-sm font-medium">
+                {selectedProductIds.length} sản phẩm được chọn
+              </div>
+            </div>
+            {selectedProductIds.length > 0 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedProductIds([])}
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+                >
+                  Bỏ chọn tất cả
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Actions Menu */}
+      {selectedProductIds.length > 0 && isSelectionMode && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-lg animate-slide-up">
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">Hành động cho sản phẩm đã chọn</h3>
+          <div className="flex flex-wrap gap-3">
+            {/* Category Change Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all duration-200"
+              >
+                <Tag className="w-4 h-4" />
+                Chuyển phân loại
+                <ChevronDown className={`w-4 h-4 transition-transform ${categoryDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {categoryDropdownOpen && (
+                <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                  <div className="p-2">
+                    <div className="text-sm text-gray-600 font-medium mb-2 px-2">Chọn phân loại mới:</div>
+                    {categories.map((category) => (
+                      <button
+                        key={category.id}
+                        onClick={() => handleBulkCategoryChange(category.id)}
+                        className="w-full text-left px-3 py-2 hover:bg-green-50 rounded-lg transition-colors text-gray-700 hover:text-green-700"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          {category.name}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Bulk Delete */}
+            <button
+              onClick={() => {
+                setConfirmation({
+                  open: true, title: 'Thao tác nguy hiểm',
+                  content: `Bạn có chắc muốn xóa ${selectedProductIds.length} sản phẩm`, type: 'warning',
+                  onClose: () => { setConfirmation({ open: false, title: '', content: '', type: 'warning', onClose: () => { }, onConfirm: () => { }, loading: false }) },
+                  onConfirm: () => { handleBulkDelete() },
+                  loading: isLoading
+                })
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200"
+            >
+              <Trash2 className="w-4 h-4" />
+              Xóa đã chọn ({selectedProductIds.length})
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Search and Filter Section */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="w-5 h-5 absolute left-3 top-3 text-green-400" />
@@ -379,7 +593,7 @@ const ManagePage = () => {
           label=""
           icon={Search}
           classname="bg-green-500 text-white hover:bg-green-600 h-12"
-          loading={isSearching}
+          loading={isLoading}
         />
 
         {/* Filter Dropdown */}
@@ -393,7 +607,6 @@ const ManagePage = () => {
             variant="secondary"
             onMouseEnter={() => setIsFilterOpen(true)}
             onMouseLeave={() => {
-              // Delay để có thời gian di chuột vào dropdown
               setTimeout(() => {
                 if (!document.querySelector('.filter-dropdown:hover')) {
                   setIsFilterOpen(false);
@@ -406,16 +619,15 @@ const ManagePage = () => {
             Bộ lọc
           </ActionButton>
 
-          {/* Main Dropdown */}
+          {/* Filter Dropdown Menu */}
           {isFilterOpen && (
-            <div
-              className="filter-dropdown absolute top-full right-0 mt-1 w-56 bg-white border border-green-200 rounded-lg shadow-lg z-50"
-            >
+            <div className="filter-dropdown absolute top-full right-0 mt-1 w-56 bg-white border border-green-200 rounded-lg shadow-lg z-50">
               <div className='px-4 py-3 hover:bg-green-50 cursor-pointer border-b border-green-100 flex items-center'
                 onClick={() => { setSearchCategoryId(null); setSearchProductStatus(null); setSearchResult(null) }}>
                 <p>Tất cả</p>
               </div>
-              {/* Lọc theo phân loại */}
+
+              {/* Category Filter */}
               <div
                 className="relative px-4 py-3 hover:bg-green-50 cursor-pointer border-b border-green-100 flex items-center justify-between"
                 onMouseEnter={() => setActiveSubmenu('category')}
@@ -426,7 +638,6 @@ const ManagePage = () => {
                 </div>
                 <ChevronRight className="w-4 h-4 text-green-400" />
 
-                {/* Submenu cho categories */}
                 {activeSubmenu === 'category' && (
                   <div className="absolute right-full top-0 mr-1 w-48 bg-white border border-green-200 rounded-lg shadow-lg z-50">
                     {categories.map((category) => (
@@ -434,9 +645,7 @@ const ManagePage = () => {
                         key={category.id}
                         className="px-4 py-2 hover:bg-green-50 cursor-pointer text-green-700 border-b border-green-50 last:border-b-0"
                         onClick={() => {
-                          // Handle category filter selection
                           handleFindProducts()
-                          console.log('Selected category:', category);
                           setSearchCategoryId(category.id)
                           setIsFilterOpen(false);
                           setActiveSubmenu(null);
@@ -449,7 +658,7 @@ const ManagePage = () => {
                 )}
               </div>
 
-              {/* Lọc theo trạng thái */}
+              {/* Status Filter */}
               <div
                 className="relative px-4 py-3 hover:bg-green-50 cursor-pointer flex items-center justify-between"
                 onMouseEnter={() => setActiveSubmenu('status')}
@@ -460,7 +669,6 @@ const ManagePage = () => {
                 </div>
                 <ChevronRight className="w-4 h-4 text-green-400" />
 
-                {/* Submenu cho status */}
                 {activeSubmenu === 'status' && (
                   <div className="absolute right-full top-0 mr-1 w-48 bg-white border border-green-200 rounded-lg shadow-lg z-50">
                     {productStatuses.length !== 0 ? productStatuses.map((status) => (
@@ -469,9 +677,7 @@ const ManagePage = () => {
                         className="px-4 py-2 hover:bg-green-50 cursor-pointer text-green-700 border-b border-green-50 last:border-b-0"
                         onClick={() => {
                           handleFindProducts()
-                          // Handle status filter selection
                           setSearchProductStatus(status.value)
-                          console.log('Selected status:', status);
                           setIsFilterOpen(false);
                           setActiveSubmenu(null);
                         }}
@@ -489,14 +695,42 @@ const ManagePage = () => {
         </div>
       </div>
 
-      {/* Grid Layout */}
+      {/* Product Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {(searchResult ? searchResult : products).map((product) => (
           <div
             key={product.id}
-            className="bg-white rounded-2xl shadow-lg border border-green-100 overflow-hidden 
-               hover:shadow-xl transition-all duration-300 hover:-translate-y-1 hover:scale-105"
+            className={`bg-white rounded-2xl shadow-lg border overflow-hidden transition-all duration-300 cursor-pointer
+               ${isSelectionMode
+                ? 'hover:shadow-xl hover:-translate-y-1 hover:scale-105'
+                : 'hover:shadow-xl hover:-translate-y-1 hover:scale-105'
+              }
+               ${selectedProductIds.includes(product.id)
+                ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-200'
+                : 'border-green-100'
+              }
+               ${isSelectionMode ? 'hover:ring-2 hover:ring-blue-300' : ''}
+            `}
+            onClick={() => {
+              if (isSelectionMode) {
+                handleProductSelection(product.id);
+              }
+            }}
           >
+            {/* Selection Checkbox */}
+            {isSelectionMode && (
+              <div className="absolute top-3 left-3 z-10">
+                <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all duration-200 ${selectedProductIds.includes(product.id)
+                  ? 'bg-blue-500 border-blue-500'
+                  : 'bg-white border-gray-300 hover:border-blue-400'
+                  }`}>
+                  {selectedProductIds.includes(product.id) && (
+                    <Check className="w-4 h-4 text-white" />
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Product Image */}
             <div className="relative h-48 bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center">
               {product.images[0] ? (
@@ -508,8 +742,9 @@ const ManagePage = () => {
               ) : (
                 <Package className="w-16 h-16 text-green-500" />
               )}
+
               {/* Status Badge */}
-              <div className="absolute top-3 right-3">
+              <div className={`absolute top-3 right-3 ${isSelectionMode ? 'opacity-75' : ''}`}>
                 <span
                   className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
                     product.status
@@ -518,6 +753,15 @@ const ManagePage = () => {
                   {product.status === "AVAILABLE" ? "Đang bán" : "Hết hàng"}
                 </span>
               </div>
+
+              {/* Selection Overlay */}
+              {isSelectionMode && selectedProductIds.includes(product.id) && (
+                <div className="absolute inset-0 bg-blue-500 bg-opacity-20 flex items-center justify-center">
+                  <div className="w-12 h-12 bg-lime-500 rounded-full flex items-center justify-center animate-pulse">
+                    <Check className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Product Info */}
@@ -549,87 +793,110 @@ const ManagePage = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-2 pt-2 border-t border-gray-100">
-                <button
-                  className="flex-1 p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors flex items-center justify-center"
-                  onClick={() => {
-                    setModalMode("view");
-                    setSelectedProduct(product);
-                    setModalOpen(true);
-                  }}
-                  title="Xem chi tiết"
-                >
-                  <Eye className="w-4 h-4" />
-                </button>
-                <button
-                  className="flex-1 p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-center"
-                  onClick={() => {
-                    setModalMode("edit");
-                    setSelectedProduct(product);
-                    setModalOpen(true);
-                  }}
-                  title="Chỉnh sửa"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button
-                  className="flex-1 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center justify-center"
-                  title="Xóa"
-                  onClick={() => handleDeleteProduct(product.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+              {!isSelectionMode && (
+                <div className="flex gap-2 pt-2 border-t border-gray-100">
+                  <button
+                    className="flex-1 p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors flex items-center justify-center"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setModalMode("view");
+                      setSelectedProduct(product);
+                      setModalOpen(true);
+                    }}
+                    title="Xem chi tiết"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  <button
+                    className="flex-1 p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-center"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setModalMode("edit");
+                      setSelectedProduct(product);
+                      setModalOpen(true);
+                      setModalName('product');
+                    }}
+                    title="Chỉnh sửa"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    className="flex-1 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center justify-center"
+                    title="Xóa"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteProduct(product.id);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ))}
-
       </div>
 
-      <ProductModal
-        isOpen={modalOpen}
-        mode={modalMode}
-        product={selectedProduct}
-        onClose={() => setModalOpen(false)}
-        categories={categories}
-        onSave={(result, error) => {
-          if (error) {
-            console.error("HAHHAHAHAH ERROR NÈ CON GÀ", error);
-            const errorMessage = error.response?.data?.message || error.message || error || 'Lưu sản phẩm thất bại. Vui lòng thử lại.';
-            setNotification({
-              hide: false, title: 'LƯU THẤT BẠI', message: errorMessage,
-              onClose: () => {
-                setNotification({ hide: true, title: '', message: '', onClose: () => { }, type: 'info' });
-              },
-              type: 'error'
-            });
-          } else {
-            if (modalMode === 'add') {
+      {/* Product Modal */}
+      {modalName === 'product' ?
+        (<ProductModal
+          isOpen={modalOpen}
+          mode={modalMode}
+          product={selectedProduct}
+          onClose={() => { setModalOpen(false); setModalName('') }}
+          categories={categories}
+          onSave={(result, error) => {
+            if (error) {
+              console.error("HAHHAHAHAH ERROR NÈ CON GÀ", error);
+              const errorMessage = error.response?.data?.message || error.message || error || 'Lưu sản phẩm thất bại. Vui lòng thử lại.';
               setNotification({
-                hide: false,
-                title: 'Thành công',
-                message: 'Tạo sản phẩm thành công',
+                hide: false, title: 'LƯU THẤT BẠI', message: errorMessage,
                 onClose: () => {
                   setNotification({ hide: true, title: '', message: '', onClose: () => { }, type: 'info' });
                 },
-                type: 'success'
+                type: 'error'
               });
-            } else if (modalMode === 'edit') {
-              setNotification({
-                hide: false,
-                title: 'Thành công',
-                message: 'Đã cập nhật thông tin sản phẩm',
-                onClose: () => {
-                  setNotification({ hide: true, title: '', message: '', onClose: () => { }, type: 'info' });
-                },
-                type: 'success'
-              });
+            } else {
+              if (modalMode === 'add') {
+                setNotification({
+                  hide: false,
+                  title: 'Thành công',
+                  message: 'Tạo sản phẩm thành công',
+                  onClose: () => {
+                    setNotification({ hide: true, title: '', message: '', onClose: () => { }, type: 'info' });
+                  },
+                  type: 'success'
+                });
+              } else if (modalMode === 'edit') {
+                setNotification({
+                  hide: false,
+                  title: 'Thành công',
+                  message: 'Đã cập nhật thông tin sản phẩm',
+                  onClose: () => {
+                    setNotification({ hide: true, title: '', message: '', onClose: () => { }, type: 'info' });
+                  },
+                  type: 'success'
+                });
+              }
             }
-          }
-        }}
-      />
+          }}
+        />) :
+        <></>}
+      {activeTab === 'products' ?
+        (<ConfirmationModal
+          isOpen={confirmation.open}
+          title={confirmation.title}
+          content={confirmation.content}
+          type={confirmation.type}
+          loading={confirmation.loading}
+          onClose={confirmation.onClose}
+          onConfirm={confirmation.onConfirm}
+        />) :
+        (<></>)}
     </div>
   );
+
+
 
   const renderCategories = () => (
     <div className="space-y-6 animate-fade-in">
@@ -638,26 +905,101 @@ const ManagePage = () => {
           <h2 className="text-2xl font-bold text-green-800">Phân loại sản phẩm</h2>
           <p className="text-green-600">Quản lý các danh mục sản phẩm</p>
         </div>
-        <ActionButton>
+        <ActionButton onClick={() => { setModalName('category'); setModalOpen(true) }}>
           <Plus className="w-4 h-4" />
           Thêm danh mục
         </ActionButton>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {categories.map((category) => (
-          <div key={category.id} className={` border-2 border-green-200/50 rounded-2xl p-6 hover:scale-105 transition-all duration-300 cursor-pointer group`}>
-            <div className="flex items-center justify-between mb-4">
-              <Layers className="w-8 h-8 text-green-600" />
-              <span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+        {categories.map((category) => {
+          let timer;
+
+          const handleHoldStart = () => {
+            timer = setTimeout(() => {
+              setConfirmation({
+                open: true,
+                title: "Xác nhận xóa phân loại",
+                content: `Bạn có chắc muốn xóa phân loại "${category.name}" không?`,
+                type: "warning",
+                loading: false,
+                onClose: () =>
+                  setConfirmation((prev) => ({ ...prev, open: false })),
+                onConfirm: async () => {
+                  setConfirmation((prev) => ({ ...prev, loading: true }));
+                  try {
+                    await deleteCategory(category.id);
+                  } catch (err) {
+                    console.error("Error deleting category:", err);
+                  } finally {
+                    setConfirmation((prev) => ({ ...prev, open: false, loading: false }));
+                  }
+                },
+              });
+            }, 1000); // Giữ 1s thì mở confirm
+          };
+
+          const handleHoldEnd = () => {
+            clearTimeout(timer);
+          };
+
+          return (
+            <div
+              key={category.id}
+              onClick={() => {
+                setModalName("category");
+                setSelectedCategory(category);
+                setModalOpen(true);
+              }}
+              onMouseDown={handleHoldStart}
+              onMouseUp={handleHoldEnd}
+              onMouseLeave={handleHoldEnd}
+              onTouchStart={handleHoldStart}
+              onTouchEnd={handleHoldEnd}
+              className={`border-2 border-green-200/50 rounded-2xl p-6 hover:scale-105 transition-all duration-300 cursor-pointer group`}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <Layers className="w-8 h-8 text-green-600" />
+                <span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                  {category.products.length} Sản phẩm
+                </span>
+              </div>
+              <h3 className="text-lg font-bold text-green-800 group-hover:text-green-900">
+                {category.name}
+              </h3>
+              <p className="text-green-600 text-sm mt-1">
                 {category.products.length} Sản phẩm
-              </span>
+              </p>
             </div>
-            <h3 className="text-lg font-bold text-green-800 group-hover:text-green-900">{category.name}</h3>
-            <p className="text-green-600 text-sm mt-1">{category.products.length} Sản phẩm</p>
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      {/* Modal update / create */}
+      {modalName === "category" && (
+        <CategoryModal
+          isOpen={modalOpen}
+          onClose={() => {
+            setModalOpen(false);
+            setModalName("");
+          }}
+          category={selectedCategory}
+          onSuccess={() => { }}
+        />
+      )}
+
+      {/* Modal xác nhận */}
+      {activeTab === "categories" && (
+        <ConfirmationModal
+          isOpen={confirmation.open}
+          title={confirmation.title}
+          content={confirmation.content}
+          type={confirmation.type}
+          loading={confirmation.loading}
+          onClose={confirmation.onClose}
+          onConfirm={confirmation.onConfirm}
+        />
+      )}
     </div>
   );
 
@@ -824,7 +1166,7 @@ const ManagePage = () => {
     </div>
   );
   return (
-    <div className="p-6">
+    <div className="p-6 h-screen overflow-auto">
       {/* Menu bên trái hoặc tabs */}
 
       <div className="flex gap-4 mb-6 bg-gray-200 h-10 space-x-4 rounded-md">
@@ -841,6 +1183,13 @@ const ManagePage = () => {
         <button onClick={() => setActiveTab("categories")} className={`rounded p-1 ${activeTab === 'categories' ? 'bg-lime-400' : ''}`}>Phân loại</button>
         <button onClick={() => setActiveTab("custom-orders")} className={`rounded p-1 ${activeTab === 'custom-orders' ? 'bg-lime-400' : ''}`}>Đặt riêng</button>
         <button onClick={() => setActiveTab("support")} className={`rounded p-1 ${activeTab === 'support' ? 'bg-lime-400' : ''}`}>Hỗ trợ</button>
+
+        <ControlButton
+          icon={LogOut}
+          onClick={() => { logout(); authApi.logout(); navigate(path.HOME) }}
+          label=""
+          classname="ml-auto mr-4 bg-green-300 hover:bg-lime-400"
+        />
       </div>
 
       {/* Render nội dung theo tab */}

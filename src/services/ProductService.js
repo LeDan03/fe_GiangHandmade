@@ -46,12 +46,32 @@ const ProductService = {
             console.warn(`Xóa sản phẩm với id: ${id} thất bại:`, error);
         }
     },
+    deleteProducts: async (ids) => {
+        try {
+            const response = await productApi.deleteProducts(ids);
+            console.log("Delete products result", response);
+            return response;
+        } catch (error) {
+            console.warn("Xóa danh sách sản phẩm được chọn thất bại", error);
+            return error;
+        }
+    }
+    ,
     getAllProductStatuses: async () => {
         try {
             const response = await productApi.getAllProductStatuses();
             return response;
         } catch (error) {
             console.warn("Lấy map trạng thái sản phẩm thất bại", error);
+            return error;
+        }
+    },
+    changeProductsCategory: async (categoryId, productIds) => {
+        try {
+            const response = await productApi.changeProductsCategory(categoryId, productIds);
+            return response;
+        } catch (error) {
+            console.warn("Lỗi khi thay đổi phân loại cho danh sách sản phẩm", error);
             return error;
         }
     }

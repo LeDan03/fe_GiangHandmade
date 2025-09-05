@@ -18,7 +18,7 @@ export const isValidUsername = (username) => {
     return usernameRegex.test(username);
 };
 export const isValidProductImageCount = (quantity) => {
-    return quantity > 0 && quantity < 4;
+    return quantity >= 0 && quantity < 4;
 }
 
 const validators = {

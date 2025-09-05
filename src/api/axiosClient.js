@@ -32,7 +32,7 @@ axiosClient.interceptors.response.use(
                 return axiosClient(originalRequest);
             } catch (refreshError) {
                 console.error("Refresh token failed:", refreshError);
-                if (refreshError.response?.status === 403) {
+                if (refreshError.response?.status === 401) {
                     window.location.href = path.LOGIN;
                 }
                 return Promise.reject(refreshError);
