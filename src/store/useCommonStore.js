@@ -1,6 +1,6 @@
 // src/store/useCommonStore.js
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import CategoryService from "../services/CategoryService";
 import ProductService from "../services/ProductService";
 
@@ -128,7 +128,7 @@ const useCommonStore = create(
     }),
     {
       name: "common-storage",
-      getStorage: () => sessionStorage,
+      storage: createJSONStorage(() => sessionStorage),
     }
   )
 );

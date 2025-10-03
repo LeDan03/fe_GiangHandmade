@@ -191,6 +191,7 @@ const ManagePage = () => {
 
   const handleDeleteProduct = async (productId) => {
     const result = await ProductService.deleteProduct(productId);
+    console.log("RESULE", result);
     if (result.status === HttpStatusCode.Ok) {
       setProducts(products.filter(p => p.id !== productId));
       setNotification({
@@ -802,6 +803,7 @@ const ManagePage = () => {
                       setModalMode("view");
                       setSelectedProduct(product);
                       setModalOpen(true);
+                      setModalName('product');
                     }}
                     title="Xem chi tiết"
                   >
@@ -1172,7 +1174,7 @@ const ManagePage = () => {
       <div className="flex gap-4 mb-6 bg-gray-200 h-10 space-x-4 rounded-md">
         <div className="flex items-center px-3 mr-2">
           <img
-            src={currentUser.avatarUrl}
+            src={currentUser.avatar.secureUrl}
             alt="Logo"
             className="w-20 h-20 rounded-full object-cover border-2 border-white shadow"
           />

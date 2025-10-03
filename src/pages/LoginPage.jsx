@@ -34,7 +34,6 @@ export default function LoginPage() {
             }
         } catch (error) {
             let message = "Vui lòng thử lại.";
-            console.warn("Login error:", error);
             if (error.response && error.response.data && error.response.data.message) {
                 message = error.response.data.message;
             }

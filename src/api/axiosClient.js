@@ -8,12 +8,27 @@ const axiosClient = axios.create({
     headers: { "Content-Type": "application/json" },
     withCredentials: true,
 });
+// Dùng để gọi các API public không cần xác thực
+const axiosPublicClient = axios.create({
+    baseURL,
+    headers: { "Content-Type": "application/json" },
+    withCredentials: true,
+});
 
 const refreshClient = axios.create({
     baseURL,
     headers: { "Content-Type": "application/json" },
     withCredentials: true,
 });
+
+// Interceptor để chỉ reject mà k điều hướng các public api error
+axiosPublicClient.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        console.warn("Public API error:", error);
+        return Promise.reject(error);
+    }
+);
 
 axiosClient.interceptors.response.use(
     (response) => response,
@@ -44,3 +59,4 @@ axiosClient.interceptors.response.use(
 );
 
 export default axiosClient;
+export { axiosPublicClient };

@@ -4,10 +4,15 @@ import { useNavigate } from 'react-router-dom';
 
 import useAuthStore from '../store/useAuthStore';
 import useCommonStore from '../store/useCommonStore';
+import useCartStore from '../store/usePersonalStore';
+
+import UserService from '../services/UserService';
+
 
 // style
 import '../styles/global.css';
 import path from '../utils/path';
+import { HttpStatusCode } from 'axios';
 
 const HomePage = () => {
 
@@ -15,6 +20,27 @@ const HomePage = () => {
 
   const [currentSlide, setCurrentSlide] = useState(0);
   const currentUser = useAuthStore((state) => state.currentUser);
+  const setCurrentUser = useAuthStore((state) => state.setCurrentUser);
+
+  const { cart, fetchCart, addItem, removeItem } = useCartStore();
+  useEffect(() => {
+    if (currentUser) {
+      fetchCart(currentUser.id);
+    }
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const result = await UserService.getMe();
+      console.log("fetch user", result);
+      if (result && result.status === HttpStatusCode.Ok) {
+        setCurrentUser(result.data);
+      }
+    }
+    if (!currentUser) {
+      fetchUserData();
+    }
+  }, []);
 
   const [favorites, setFavorites] = useState([]);
 
@@ -69,6 +95,7 @@ const HomePage = () => {
     return () => clearInterval(timer);
   }, []);
 
+
   const toggleFavorite = (productId) => {
     setFavorites(prev =>
       prev.includes(productId)
@@ -96,8 +123,8 @@ const HomePage = () => {
   }, [products]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-emerald-50">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="min-h-screen rounded-2xl">
+      <main className="w-full rounded-2xl">
         {/* Hero Slider */}
         <section className="mb-12">
           <div className="relative rounded-2xl overflow-hidden shadow-xl bg-white">
@@ -208,17 +235,20 @@ const HomePage = () => {
             {products.map((product, index) => (
               <div
                 key={product.id}
-                className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-2 overflow-hidden"
-                style={{
-                  animationDelay: `${index * 150}ms`,
-                  animation: 'fadeInUp 0.8s ease-out forwards'
+                onClick={() => {
+                  currentUser ? navigate(`/product/${product.id}`) : navigate(path.LOGIN);
                 }}
+                className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-2 overflow-hidden"
+              // style={{
+              //   animationDelay: `${index * 150}ms`, 
+              //   animation: 'fadeInUp 0.8s ease-out forwards'
+              // }}
               >
                 <div className="relative">
                   <img
-                    src={product.images[0].secureUrl}
+                    src={product.images[0]?.secureUrl || '/images/default-product-img.png'}
                     alt={product.name}
-                    className="w-full h-32 md:h-48 object-cover"
+                    className="w-full h-32 md:h-48 object-cover cursor-pointer"
                   />
                   <button
                     onClick={() => toggleFavorite(product.id)}

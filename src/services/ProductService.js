@@ -44,6 +44,7 @@ const ProductService = {
         }
         catch (error) {
             console.warn(`Xóa sản phẩm với id: ${id} thất bại:`, error);
+            return error;
         }
     },
     deleteProducts: async (ids) => {

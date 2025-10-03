@@ -1,13 +1,15 @@
-import { Search, Heart, ShoppingCart, LogIn, LogOut, UserPlus, Menu, X, User } from 'lucide-react';
-import { useState } from 'react';
+import { Search, Heart, ShoppingCart, LogIn, LogOut, UserPlus, Menu, X, User, Package, Truck, CheckCircle, Clock, Home, ShoppingBag } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // các thành phần
 import ControlButton from '../components/buttons/controlButton';
-import SubmitButton from '../components/buttons/submitButton';
 import Logo from '../components/Logo';
 
 import useAuthStore from '../store/useAuthStore';
+import useProductStore from '../store/useProductStore';
+import useUserMenuStore from '../store/useUserMenuStore';
+import usePersonalStore from '../store/usePersonalStore';
 
 // Các tiện ích
 import path from '../utils/path';
@@ -16,20 +18,50 @@ export default function Header() {
     const navigate = useNavigate();
     const user = useAuthStore((state) => state.currentUser);
     const [searchTerm, setSearchTerm] = useState('');
+    const searchProducts = useProductStore((state) => state.searchProducts);
+    const isSearching = useProductStore((state) => state.isSearching);
+
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const isUserMenuOpen = useUserMenuStore((state) => state.isUserMenuOpen);
+    const toggleUserMenu = useUserMenuStore((state) => state.toggleUserMenu);
+    const closeUserMenu = useUserMenuStore((state) => state.closeUserMenu);
+
+    const cart = usePersonalStore((state) => state.cart);
+    const fetchCart = usePersonalStore((state) => state.fetchCart);
+
+    useEffect(() => {
+        if (user) fetchCart(user.id);
+    }, [user?.id]);
 
     const handleLogout = () => {
         useAuthStore.getState().logout();
         sessionStorage.clear();
         navigate(path.HOME);
-        setIsUserMenuOpen(false);
+        closeUserMenu();
         setIsMobileMenuOpen(false);
     }
 
+    useEffect(() => {
+        const handleSearch = setTimeout(() => {
+            if (searchTerm.trim() !== '') {
+                searchProducts(searchTerm.trim());
+            } else {
+                useProductStore.getState().clearSearch();
+            }
+        }, 500)
+        return () => clearTimeout(handleSearch);
+    }, [searchTerm, searchProducts]);
+
+    // Helper function để lấy chữ cái đầu của tên
+    const getInitials = (name) => {
+        if (!name) return 'U';
+        return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    };
+
     return (
-        <header className="bg-white/95 backdrop-blur-md sticky top-0 z-50 shadow-sm border-b border-green-100">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <header className="w-full bg-white/95 backdrop-blur-md sticky top-0 z-50 shadow-sm border-b border-green-100">
+            <div className="mx-auto px-4 sm:px-6 lg:px-8">
+
                 <div className="flex items-center justify-between h-16">
                     {/* Logo và Brand */}
                     <div className="flex items-center space-x-2">
@@ -58,37 +90,36 @@ export default function Header() {
                                 <button className="p-2 text-green-600 hover:bg-green-100 rounded-full transition-colors duration-200 hover:scale-105">
                                     <Heart className="w-5 h-5" />
                                 </button>
-                                <button className="p-2 text-green-600 hover:bg-green-100 rounded-full transition-colors duration-200 hover:scale-105">
+                                <button className="relative p-2 text-green-600 hover:bg-green-100 rounded-full transition-colors duration-200 hover:scale-105"
+                                    onClick={() => navigate(path.ORDER_MANAGEMENT)}
+                                >
                                     <ShoppingCart className="w-5 h-5" />
-                                </button>
+                                    {cart?.quantity > 0 && (
+                                        <span className="absolute flex items-center justify-center 
+                                                            min-w-[14px] h-[14px] -top-1 -right-1 
+                                                            bg-red-500 text-white text-xs font-bold 
+                                                            rounded-full">
+                                            {cart.quantity || 0}
+                                        </span>
 
-                                {/* User Menu Dropdown */}
+                                    )}
+                                </button>
+                                <div className='flex rounded-full text-green-600 hover:bg-orange-500 hover:text-white transition-colors duration-200 hover:scale-105'
+
+                                    onClick={() => navigate(path.HOME)}
+                                >
+                                    <Home className='p-2 w-9 h-9' />
+                                </div>
+                                {/* User Avatar Button */}
                                 <div className="relative">
                                     <button
-                                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                                        className="flex items-center space-x-2 p-2 text-emerald-700 hover:bg-green-100 rounded-full transition-colors duration-200"
+                                        onClick={toggleUserMenu}
+                                        className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-white font-semibold hover:shadow-lg transition-all duration-200 hover:scale-105"
                                     >
-                                        <User className="w-5 h-5" />
-                                        <span className="text-sm font-medium hidden lg:block">
-                                            {user.name || 'Tài khoản'}
-                                        </span>
+                                        {getInitials(user.name || user.username)}
                                     </button>
-
-                                    {isUserMenuOpen && (
-                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10">
-                                            <div className="px-4 py-2 text-sm text-gray-700 border-b">
-                                                Xin chào, {user.name || 'User'}
-                                            </div>
-                                            <button
-                                                onClick={handleLogout}
-                                                className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                                            >
-                                                <LogOut className="w-4 h-4 mr-2" />
-                                                Đăng xuất
-                                            </button>
-                                        </div>
-                                    )}
                                 </div>
+
                             </>
                         ) : (
                             <>
@@ -132,9 +163,59 @@ export default function Header() {
                 </div>
             </div>
 
+            {/* Desktop User Menu Dropdown */}
+            {isUserMenuOpen && user && (
+                <div className="hidden md:block absolute right-4 top-20 w-80 bg-white rounded-2xl shadow-2xl border border-green-100 overflow-hidden z-50 animate-slide-down">
+                    {/* Header với Avatar và Info */}
+                    <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-6">
+                        <div className="flex items-center space-x-4">
+                            <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-bold text-2xl shadow-lg">
+                                {getInitials(user.name || user.username)}
+                            </div>
+                            <div className="flex-1 text-white">
+                                <h3 className="font-semibold text-lg truncate">
+                                    {user.name || user.username || 'Người dùng'}
+                                </h3>
+                                <p className="text-emerald-100 text-sm truncate">
+                                    {user.email || 'email@example.com'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Menu Items */}
+                    <div className="p-3">
+                        <button className="w-full flex items-center space-x-3 p-3 text-gray-700 hover:bg-emerald-50 rounded-lg transition-colors group">
+                            <User className="w-5 h-5 text-emerald-600 group-hover:scale-110 transition-transform" />
+                            <span className="font-medium">Quản lý tài khoản</span>
+                        </button>
+
+                        <button className="w-full flex items-center space-x-3 p-3 text-gray-700 hover:bg-emerald-50 rounded-lg transition-colors group"
+                            onClick={() => {
+                                closeUserMenu();
+                                navigate(`/customer/${user.id}`)
+                            }}
+                        >
+                            <ShoppingBag className="w-5 h-5 text-emerald-600 group-hover:scale-110 transition-transform" />
+                            <span className="font-medium">Quản lý đơn hàng</span>
+                        </button>
+
+                        <div className="border-t border-gray-200 my-2"></div>
+
+                        <button
+                            onClick={handleLogout}
+                            className="w-full flex items-center space-x-3 p-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors group"
+                        >
+                            <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            <span className="font-medium">Đăng xuất</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Mobile Menu */}
             {isMobileMenuOpen && (
-                <div className="md:hidden bg-white border-t border-green-100 shadow-lg">
+                <div className="md:hidden bg-white border-t border-green-100 shadow-lg animate-slide-down">
                     {/* Mobile Search */}
                     <div className="px-4 py-3 border-b border-green-100">
                         <div className="relative">
@@ -150,17 +231,19 @@ export default function Header() {
                     </div>
 
                     {/* Mobile Navigation */}
-                    <div className="px-4 py-2">
+                    <div className="px-4 py-2 animate-slide-down" >
                         {user ? (
                             <div className="space-y-2">
-                                {/* User Info */}
-                                <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
-                                    <User className="w-6 h-6 text-emerald-600" />
-                                    <div>
-                                        <p className="text-sm font-medium text-emerald-800">
-                                            {user.name || 'Người dùng'}
+                                {/* User Info với Avatar */}
+                                <div className="flex items-center space-x-3 p-4 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl shadow-md">
+                                    <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-bold text-xl shadow-lg flex-shrink-0">
+                                        {getInitials(user.name || user.username)}
+                                    </div>
+                                    <div className="flex-1 min-w-0 text-white">
+                                        <p className="text-base font-semibold truncate">
+                                            {user.name || user.username || 'Người dùng'}
                                         </p>
-                                        <p className="text-xs text-emerald-600">
+                                        <p className="text-sm text-emerald-100 truncate">
                                             {user.email || 'email@example.com'}
                                         </p>
                                     </div>
@@ -175,6 +258,34 @@ export default function Header() {
                                     <button className="flex items-center justify-center space-x-2 p-3 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
                                         <ShoppingCart className="w-5 h-5" />
                                         <span className="text-sm font-medium">Giỏ hàng</span>
+                                    </button>
+                                </div>
+
+                                {/* Order Management Menu Items */}
+                                <div className="space-y-2 pt-2">
+                                    <button className="w-full flex items-center space-x-3 p-3 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                                        <User className="w-5 h-5 text-emerald-600" />
+                                        <span className="text-sm font-medium">Thông tin cá nhân</span>
+                                    </button>
+
+                                    <button className="w-full flex items-center space-x-3 p-3 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                                        <Package className="w-5 h-5 text-blue-600" />
+                                        <span className="text-sm font-medium">Đơn hàng đã mua</span>
+                                    </button>
+
+                                    <button className="w-full flex items-center space-x-3 p-3 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                                        <Clock className="w-5 h-5 text-orange-600" />
+                                        <span className="text-sm font-medium">Đơn hàng đang xử lý</span>
+                                    </button>
+
+                                    <button className="w-full flex items-center space-x-3 p-3 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                                        <Truck className="w-5 h-5 text-purple-600" />
+                                        <span className="text-sm font-medium">Đang vận chuyển</span>
+                                    </button>
+
+                                    <button className="w-full flex items-center space-x-3 p-3 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                                        <CheckCircle className="w-5 h-5 text-green-600" />
+                                        <span className="text-sm font-medium">Đã hoàn thành</span>
                                     </button>
                                 </div>
 
@@ -218,9 +329,9 @@ export default function Header() {
             {/* Backdrop để đóng dropdown khi click outside */}
             {(isUserMenuOpen || isMobileMenuOpen) && (
                 <div
-                    className="fixed inset-0 z-40"
+                    className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm"
                     onClick={() => {
-                        setIsUserMenuOpen(false);
+                        closeUserMenu();
                         setIsMobileMenuOpen(false);
                     }}
                 />
