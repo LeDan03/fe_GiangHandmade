@@ -1,20 +1,26 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ShoppingCart, Heart, Share2, Star, ChevronLeft, ChevronRight, Package, Shield, Truck, Upload, X, Send, ChevronDown, ChevronUp, Leaf } from 'lucide-react';
 
 import ActionButton from "../components/buttons/ActionButton.jsx";
-import Notification from '../components/Notification.jsx';
+
+import FlyingItem from '../components/FlyingItem.jsx';
 
 import { useParams, useNavigate } from 'react-router-dom';
 
 import useCommonStore from '../store/useCommonStore';
 import useAuthStore from '../store/useAuthStore';
 import usePersonalStore from '../store/usePersonalStore.js';
+import useCartIconStore from '../store/useCartIconStore.js';
 
 import CloudinaryService from '../services/CloudinaryService.js';
 
 const ProductDetailPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+
+    const [flyingItems, setFlyingItems] = useState([]);
+    const cartRect = useCartIconStore(state => state.cartRect);
+    const imgRef = useRef(null);
 
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [quantity, setQuantity] = useState(1);
@@ -32,8 +38,9 @@ const ProductDetailPage = () => {
     const currentUser = useAuthStore(state => state.currentUser);
 
     const addItem = usePersonalStore(state => state.addItem);
+    const updateItem = usePersonalStore(state => state.updateItem);
+    const cartItems = usePersonalStore(state => state.cart.items);
 
-    const [notification, setNotification] = useState({ hide: true, title: '', message: '', onClose: {}, type: "info" });
 
     const [reviews, setReviews] = useState([
         {
@@ -202,9 +209,41 @@ const ProductDetailPage = () => {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
     };
 
-    const handleAddToCart = () => {
-        addItem({ cartId:currentUser.cartId, productId: id, quantity });
-        setNotification({ hide: false, title: 'Thành công', message: 'Đã thêm vào giỏ hàng', type: 'success' });
+    const handleAddToCart = async (e) => {
+        e.stopPropagation();
+        const existingItem = cartItems.find(item => item.productId === product.id);
+        console.log('Existing item in cart:', existingItem);
+
+        if (existingItem) {
+            await updateItem(existingItem.id, existingItem.quantity + quantity);
+        } else {
+            await addItem({ cartId: currentUser.cartId, productId: id, quantity });
+        }
+        // console.log('e.currentTarget after await:', e.currentTarget);
+        // ✅ Tính toán quỹ đạo bay giống HomePage
+        const rect = imgRef.current.getBoundingClientRect();
+        const startPos = {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+        };
+
+        if (cartRect) {
+            const endPos = {
+                x: cartRect.left + cartRect.width / 2,
+                y: cartRect.top + cartRect.height / 2,
+            };
+
+            setFlyingItems(prev => [
+                ...prev,
+                {
+                    id: Date.now(),
+                    product,
+                    start: startPos,
+                    end: endPos,
+                }
+            ]);
+            console.log("Quỹ đạo bay", startPos, endPos);
+        }
     };
 
     const handleBuyNow = () => {
@@ -294,7 +333,8 @@ const ProductDetailPage = () => {
                         <div className="space-y-4">
                             <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 group">
                                 <img
-                                    src={product?.images?.[currentImageIndex]?.secureUrl || '/public/images/default-product-img.png'}
+                                    ref={imgRef}
+                                    src={product?.images?.[currentImageIndex]?.secureUrl || '/images/default-product-img.png'}
                                     alt={product?.name}
                                     loading="lazy"
                                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
@@ -374,7 +414,7 @@ const ProductDetailPage = () => {
                                     <div className="text-4xl font-bold text-orange-600 mb-2">
                                         {formatPrice(product?.price)}
                                     </div>
-                                    <div className="text-sm text-gray-600">Còn lại: {product?.quantity} sản phẩm</div>
+                                    <div className="text-sm text-gray-600">Có sẵn: <strong>{product?.quantity}</strong> sản phẩm</div>
                                 </div>
 
                                 <div className="mb-6">
@@ -405,14 +445,14 @@ const ProductDetailPage = () => {
                                     <span className="font-medium text-gray-700">Số lượng:</span>
                                     <div className="flex items-center border-2 border-gray-200 rounded-lg">
                                         <button
-                                            onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                                            onClick={() => setQuantity(q => Math.max(1, q - 1))}
                                             className="px-4 py-2 hover:bg-gray-100 transition-colors"
                                         >
                                             -
                                         </button>
                                         <span className="px-6 py-2 font-medium">{quantity}</span>
                                         <button
-                                            onClick={() => setQuantity(quantity + 1)}
+                                            onClick={() => setQuantity(q => q + 1)}
                                             className="px-4 py-2 hover:bg-gray-100 transition-colors"
                                         >
                                             +
@@ -421,7 +461,10 @@ const ProductDetailPage = () => {
                                 </div>
 
                                 <div className="flex flex-col sm:flex-row gap-3">
-                                    <ActionButton variant="secondary" onClick={handleAddToCart} className="flex-1 justify-center">
+                                    <ActionButton variant="secondary"
+                                        
+                                        onClick={(e) => handleAddToCart(e)}
+                                        className="flex-1 justify-center">
                                         <ShoppingCart className="w-5 h-5" />
                                         Thêm vào giỏ
                                     </ActionButton>
@@ -667,13 +710,15 @@ const ProductDetailPage = () => {
                     </div>
                 </div>
             </div>
-            <Notification
-                hide={notification.hide}
-                title={notification.title}
-                message={notification.message}
-                type={notification.type}
-                onClose={() => setNotification({ ...notification, hide: true })}
-            />
+            {flyingItems.map(item => (
+                <FlyingItem
+                    key={item.id}
+                    product={item.product}
+                    start={item.start}
+                    end={item.end}
+                    onFinish={() => setFlyingItems(items => items.filter(f => f.id !== item.id))}
+                />
+            ))}
         </div>
     );
 };

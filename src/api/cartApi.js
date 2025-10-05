@@ -13,7 +13,7 @@ const cartApi = {
     },
     update: (itemId, quantity) => {
         const url = `/carts/${itemId}`;
-        return axiosClient.put(url, { params: { quantity } });
+        return axiosClient.put(url,null,{ params: { quantity } });//null là để không truyền body. Sau mới truyền được param lên url
     },
     removeItem: (ids) => {
         const url = `/carts`;

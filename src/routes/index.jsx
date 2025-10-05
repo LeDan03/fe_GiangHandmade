@@ -9,8 +9,8 @@ import LoginPage from "../pages/LoginPage.jsx";
 import RegisterPage from "../pages/RegisterPage.jsx";
 import ManagePage from "../pages/ManagePage/ManagePage.jsx";
 import OrderManagementPage from "../pages/OrderManagementPage.jsx";
-
-const ProductDetailPage = lazy(() => import("../pages/ProductDetailPage.jsx"));
+import ProductDetailPage from "../pages/ProductDetailPage.jsx";
+import OrderPage from "../pages/OrderPage.jsx";
 
 export const router = createBrowserRouter([
     {
@@ -28,6 +28,10 @@ export const router = createBrowserRouter([
             {
                 path: path.ORDER_MANAGEMENT,
                 element: <OrderManagementPage />,
+            },
+            {
+                path: path.ORDER,
+                element: <OrderPage />,
             }
         ]
     },

@@ -1,5 +1,5 @@
 import { Search, Heart, ShoppingCart, LogIn, LogOut, UserPlus, Menu, X, User, Package, Truck, CheckCircle, Clock, Home, ShoppingBag } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // các thành phần
@@ -10,12 +10,14 @@ import useAuthStore from '../store/useAuthStore';
 import useProductStore from '../store/useProductStore';
 import useUserMenuStore from '../store/useUserMenuStore';
 import usePersonalStore from '../store/usePersonalStore';
+import useCartIconStore from '../store/useCartIconStore';
 
 // Các tiện ích
 import path from '../utils/path';
 
 export default function Header() {
     const navigate = useNavigate();
+
     const user = useAuthStore((state) => state.currentUser);
     const [searchTerm, setSearchTerm] = useState('');
     const searchProducts = useProductStore((state) => state.searchProducts);
@@ -28,6 +30,24 @@ export default function Header() {
 
     const cart = usePersonalStore((state) => state.cart);
     const fetchCart = usePersonalStore((state) => state.fetchCart);
+
+    const cartRef = useRef(null);
+    const setCartRect = useCartIconStore((state) => state.setCartRect);
+
+    useEffect(() => {
+        if (cartRef.current) {
+            const rect = cartRef.current.getBoundingClientRect();
+            setCartRect(rect);
+            // update rect on resize/scroll
+            const update = () => setCartRect(cartRef.current.getBoundingClientRect());
+            window.addEventListener("resize", update);
+            window.addEventListener("scroll", update, true);
+            return () => {
+                window.removeEventListener("resize", update);
+                window.removeEventListener("scroll", update, true);
+            };
+        }
+    }, [cartRef.current, setCartRect]);
 
     useEffect(() => {
         if (user) fetchCart(user.id);
@@ -91,7 +111,8 @@ export default function Header() {
                                     <Heart className="w-5 h-5" />
                                 </button>
                                 <button className="relative p-2 text-green-600 hover:bg-green-100 rounded-full transition-colors duration-200 hover:scale-105"
-                                    onClick={() => navigate(path.ORDER_MANAGEMENT)}
+                                    onClick={() => navigate(`/customer/${user.id}`)}
+                                    ref={cartRef}
                                 >
                                     <ShoppingCart className="w-5 h-5" />
                                     {cart?.quantity > 0 && (

@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import { ChevronLeft, ChevronRight, Heart, ShoppingCart, Star, Box } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import useAuthStore from '../store/useAuthStore';
 import useCommonStore from '../store/useCommonStore';
-import useCartStore from '../store/usePersonalStore';
+import usePersonalStore from '../store/usePersonalStore';
+import useCartIconStore from '../store/useCartIconStore';
 
 import UserService from '../services/UserService';
 
+import FlyingItem from '../components/FlyingItem';
 
 // style
 import '../styles/global.css';
@@ -21,13 +23,63 @@ const HomePage = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const currentUser = useAuthStore((state) => state.currentUser);
   const setCurrentUser = useAuthStore((state) => state.setCurrentUser);
+  const cart = usePersonalStore((state) => state.cart);
+  const cartItems = cart.items || [];
+  const addItem = usePersonalStore((state) => state.addItem);
+  const updateItem = usePersonalStore((state) => state.updateItem);
 
-  const { cart, fetchCart, addItem, removeItem } = useCartStore();
-  useEffect(() => {
-    if (currentUser) {
-      fetchCart(currentUser.id);
+  const getItemQuantityByProductId = (productId) => {
+    const item = cartItems.find(item => item.productId === productId);
+    return item ? item.quantity : 0;
+  }
+
+  const cartRect = useCartIconStore((state) => state.cartRect);
+  const [flyingItems, setFlyingItems] = useState([]);
+  const handleAddToCart = (product, e) => {
+    if (!currentUser) {
+      navigate(path.LOGIN);
+      return;
     }
-  }, [currentUser?.id]);
+    e.stopPropagation();
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const startPos = {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    };
+
+    if (cartRect) {
+      const endPos = {
+        x: cartRect.left + cartRect.width / 2,
+        y: cartRect.top + cartRect.height / 2,
+      };
+
+      setFlyingItems(prev => [
+        ...prev,
+        {
+          id: Date.now(),
+          product,
+          start: startPos,
+          end: endPos,
+        }
+      ]);
+      console.log("Quỹ đạo bay", startPos, endPos);
+    }
+
+
+    // thêm item vào store
+    getItemQuantityByProductId(product.id) === 0
+      ? addItem({
+        cartId: currentUser.cartId,
+        quantity: 1,
+        productId: product.id,
+      })
+      : updateItem(
+        cartItems.find(item => item.productId === product.id).id,
+        getItemQuantityByProductId(product.id) + 1
+      );
+  };
+
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -239,14 +291,14 @@ const HomePage = () => {
                   currentUser ? navigate(`/product/${product.id}`) : navigate(path.LOGIN);
                 }}
                 className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-2 overflow-hidden"
-              // style={{
-              //   animationDelay: `${index * 150}ms`, 
-              //   animation: 'fadeInUp 0.8s ease-out forwards'
-              // }}
+                style={{
+                  animationDelay: `${index * 150}ms`,
+                  animation: 'fadeInUp 0.8s ease-out forwards'
+                }}
               >
                 <div className="relative">
                   <img
-                    src={product.images[0]?.secureUrl || '/images/default-product-img.png'}
+                    src={product?.images?.[0]?.secureUrl || '/images/default-product-img.png'}
                     alt={product.name}
                     className="w-full h-32 md:h-48 object-cover cursor-pointer"
                   />
@@ -279,13 +331,18 @@ const HomePage = () => {
                     <span className="text-lg font-bold text-emerald-600">
                       {product.price.toLocaleString("vi-VN")}đ
                     </span>
-                    <button className="bg-green-500 hover:bg-green-600 text-white p-2 rounded-full transition-all duration-300 transform hover:scale-110">
+                    <button
+                      onClick={(e) => { handleAddToCart(product, e); }}
+                      className={`${currentUser ? 'bg-emerald-400 hover:bg-emerald-600' : 'bg-emerald-300'} text-white p-2 rounded-full transition-all duration-300 transform hover:scale-110`}
+                    >
                       <ShoppingCart className="w-4 h-4" />
                     </button>
+
                   </div>
                 </div>
               </div>
             ))}
+
           </div>
         </section>
       </main>
@@ -294,7 +351,15 @@ const HomePage = () => {
       <button className="fixed bottom-6 right-6 bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-full shadow-lg transition-all duration-300 transform hover:scale-110 z-40">
         <div className="text-xl">🐱</div>
       </button>
-
+      {flyingItems.map(item => (
+        <FlyingItem
+          key={item.id}
+          product={item.product}
+          start={item.start}
+          end={item.end}
+          onFinish={() => setFlyingItems(prev => prev.filter(f => f.id !== item.id))}
+        />
+      ))}
     </div>
   );
 };

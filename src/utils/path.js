@@ -5,5 +5,6 @@ const path = {
     MANAGE: '/manage',
     PRODUCT_DETAIL: '/product/:id',
     ORDER_MANAGEMENT: '/customer/:id',
+    ORDER:'/order',
 }
 export default path;

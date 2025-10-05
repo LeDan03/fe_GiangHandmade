@@ -27,7 +27,8 @@ const useCartStore = create(
 
       addItem: async (item) => {
         try {
-          const newItem = await CartService.add(item); // backend trả CartItemResponse
+          const response = await CartService.add(item); // backend trả CartItemResponse
+          const newItem = response.data;
           set((state) => {
             const existingIndex = state.cart.items.findIndex(
               (it) => it.id === newItem.id
@@ -61,15 +62,24 @@ const useCartStore = create(
       },
       updateItem: async (itemId, quantity) => {
         try {
-          await CartService.update(itemId, quantity);
-          set((state) => ({
-            cart: {
-              ...state.cart,
-              items: state.cart.items.map((item) =>
-                item.id === itemId ? { ...item, quantity } : item
-              ),
-            },
-          }));
+          const updatedItem = await CartService.update(itemId, quantity);
+          console.log("Updated item:", updatedItem);
+          set((state) => {
+            const updatedItems = state.cart.items.map((item) =>
+              item.id === itemId ? { ...item, quantity, priceSnapshot: updatedItem.priceSnapshot } : item
+            );
+            const totalQuantity = updatedItems.reduce((sum, item) => sum + item.quantity, 0);
+            const totalPrice = updatedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+            return {
+              cart: {
+                ...state.cart,
+                quantity: totalQuantity,
+                totalPrice,
+                items: updatedItems,
+              },
+            };
+          });
         } catch (err) {
           console.error("Error updating item:", err);
         }
@@ -77,12 +87,21 @@ const useCartStore = create(
       removeItem: async (ids) => {
         try {
           await CartService.removeItem(ids);
-          set((state) => ({
-            cart: {
-              ...state.cart,
-              items: state.cart.items.filter((i) => !ids.includes(i.id)),
-            },
-          }));
+
+          set((state) => {
+            const updatedItems = state.cart.items.filter((item) => !ids.includes(item.id));
+            const totalQuantity = updatedItems.reduce((sum, item) => sum + item.quantity, 0);
+            const totalPrice = updatedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+            return {
+              cart: {
+                ...state.cart,
+                quantity: totalQuantity,
+                totalPrice,
+                items: updatedItems,
+              },
+            };
+          });
         } catch (err) {
           console.error("Error removing item:", err);
         }
